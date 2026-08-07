@@ -4,8 +4,16 @@ import re
 import urllib.request
 import feedparser
 import tweepy
+from datetime import datetime, timezone
+import time
+import random
 
-# 1. Load and validate Environment Variables
+# File tracking
+SENT_POSTS_FILE = "sent_posts.json"
+REPOSTED_POSTS_FILE = "reposted_posts.json"
+FALLBACK_IMAGE = "fallback.jpg"
+
+# 1. Environment Variable Validation
 RSS_FEED_URL = os.getenv("RSS_FEED_URL")
 X_CONSUMER_KEY = os.getenv("X_CONSUMER_KEY")
 X_CONSUMER_SECRET = os.getenv("X_CONSUMER_SECRET")
@@ -15,7 +23,7 @@ X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET")
 if not all([RSS_FEED_URL, X_CONSUMER_KEY, X_CONSUMER_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
     raise ValueError("Missing one or more required environment variables.")
 
-# 2. Authenticate with X (v1.1 for media upload, v2 for tweeting)
+# 2. Authenticate with X
 auth = tweepy.OAuth1UserHandler(
     X_CONSUMER_KEY, X_CONSUMER_SECRET,
     X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET
@@ -29,30 +37,60 @@ client = tweepy.Client(
     access_token_secret=X_ACCESS_TOKEN_SECRET
 )
 
-SENT_POSTS_FILE = "sent_posts.json"
-FALLBACK_IMAGE = "fallback.jpg"
 
-
-def load_sent_posts():
-    """Loads previously posted RSS IDs from local JSON tracking file."""
-    if os.path.exists(SENT_POSTS_FILE):
+# 3. JSON Tracking Helpers
+def load_tracked_posts(file_path):
+    """Loads IDs from a local JSON tracking file."""
+    if os.path.exists(file_path):
         try:
-            with open(SENT_POSTS_FILE, "r") as f:
+            with open(file_path, "r") as f:
                 return set(json.load(f))
         except Exception:
             return set()
     return set()
 
 
-def save_sent_posts(sent_ids):
-    """Saves updated list of posted RSS IDs back to file."""
-    with open(SENT_POSTS_FILE, "w") as f:
-        json.dump(list(sent_ids), f, indent=2)
+def save_tracked_posts(file_path, id_set):
+    """Saves updated set of IDs back to JSON."""
+    with open(file_path, "w") as f:
+        json.dump(list(id_set), f, indent=2)
 
 
+# 4. RSS Post Age and Recycling Helpers
+def get_post_age_days(entry):
+    """Calculates how many days old an RSS entry is."""
+    time_struct = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+    if not time_struct:
+        return None
+
+    pub_datetime = datetime.fromtimestamp(time.mktime(time_struct), tz=timezone.utc)
+    now_datetime = datetime.now(timezone.utc)
+    return (now_datetime - pub_datetime).days
+
+
+def get_eligible_repost(entries, reposted_ids):
+    """Filters articles published between 14 and 30 days ago that haven't been recycled yet."""
+    eligible = []
+
+    for entry in entries:
+        post_id = entry.get("id") or entry.link
+        
+        if post_id in reposted_ids:
+            continue
+
+        age_days = get_post_age_days(entry)
+        if age_days is not None and 14 <= age_days <= 30:
+            eligible.append(entry)
+
+    if not eligible:
+        return None
+
+    return random.choice(eligible)
+
+
+# 5. Media Extraction Helpers
 def extract_image_url(entry):
     """Extracts an image URL from RSS media tags, enclosures, or HTML content."""
-    # Check media enclosures
     if hasattr(entry, "media_content") and entry.media_content:
         for media in entry.media_content:
             if "url" in media and media.get("type", "").startswith("image"):
@@ -63,7 +101,6 @@ def extract_image_url(entry):
             if enc.get("type", "").startswith("image") and "href" in enc:
                 return enc["href"]
 
-    # Check HTML body for <img> tags
     content_html = ""
     if "content" in entry:
         content_html = entry.content[0].value
@@ -84,7 +121,6 @@ def prepare_media(entry):
 
     if image_url:
         try:
-            # Set a standard User-Agent so website security doesn't block python
             req = urllib.request.Request(image_url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req) as response, open(temp_file, "wb") as out_file:
                 out_file.write(response.read())
@@ -92,15 +128,16 @@ def prepare_media(entry):
         except Exception as e:
             print(f"Failed to download image from feed ({e}). Using fallback image.")
 
-    # Use fallback if download failed or no image was found in RSS
     if os.path.exists(FALLBACK_IMAGE):
         return FALLBACK_IMAGE
 
     return None
 
 
+# 6. Main Orchestrator
 def main():
-    sent_ids = load_sent_posts()
+    sent_ids = load_tracked_posts(SENT_POSTS_FILE)
+    reposted_ids = load_tracked_posts(REPOSTED_POSTS_FILE)
 
     print(f"Fetching feed from: {RSS_FEED_URL}")
     feed = feedparser.parse(RSS_FEED_URL)
@@ -109,22 +146,36 @@ def main():
         print("No entries found in RSS feed.")
         return
 
-    # Process items from oldest to newest among unposted items
-    entries_to_process = [e for e in reversed(feed.entries) if (e.get("id") or e.link) not in sent_ids]
+    # Check for brand new posts first
+    new_entries = [e for e in reversed(feed.entries) if (e.get("id") or e.link) not in sent_ids]
 
-    if not entries_to_process:
-        print("No new posts to publish.")
-        return
+    target_entry = None
+    is_repost = False
 
-    # Post only the single latest unposted item per run to avoid spamming
-    entry = entries_to_process[-1]
-    post_id = entry.get("id") or entry.link
-    title = entry.title
-    link = entry.link
+    if new_entries:
+        target_entry = new_entries[-1]
+        print(f"Found new post: {target_entry.title}")
+    else:
+        # Fallback to 14-30 day old evergreen post
+        print("No new posts found. Checking for evergreen posts (14-30 days old)...")
+        target_entry = get_eligible_repost(feed.entries, reposted_ids)
+        if target_entry:
+            is_repost = True
+            print(f"Selected evergreen post to recycle: {target_entry.title}")
+        else:
+            print("No eligible posts in the 14-30 day window available to re-post.")
+            return
 
-    tweet_text = f"{title}\n\n{link}"
+    post_id = target_entry.get("id") or target_entry.link
+    title = target_entry.title
+    link = target_entry.link
 
-    image_path = prepare_media(entry)
+    if is_repost:
+        tweet_text = f"In case you missed it:\n\n{title}\n\n{link}"
+    else:
+        tweet_text = f"{title}\n\n{link}"
+
+    image_path = prepare_media(target_entry)
     media_ids = []
 
     if image_path:
@@ -133,10 +184,9 @@ def main():
             media = api_v1.media_upload(filename=image_path)
             media_ids.append(media.media_id)
         except Exception as e:
-            print(f"Warning: Failed to upload image to X ({e}). Posting tweet text only.")
+            print(f"Warning: Failed to upload image ({e}). Posting tweet text only.")
 
     print(f"Posting tweet: {title}")
-    
     if media_ids:
         response = client.create_tweet(text=tweet_text, media_ids=media_ids)
     else:
@@ -144,13 +194,16 @@ def main():
 
     print(f"Successfully posted! Tweet ID: {response.data['id']}")
 
-    # Clean up temporary downloaded image
     if image_path == "temp_article_img.jpg" and os.path.exists("temp_article_img.jpg"):
         os.remove("temp_article_img.jpg")
 
-    # Mark as posted and save
-    sent_ids.add(post_id)
-    save_sent_posts(sent_ids)
+    # Save to proper tracking file
+    if is_repost:
+        reposted_ids.add(post_id)
+        save_tracked_posts(REPOSTED_POSTS_FILE, reposted_ids)
+    else:
+        sent_ids.add(post_id)
+        save_tracked_posts(SENT_POSTS_FILE, sent_ids)
 
 
 if __name__ == "__main__":
