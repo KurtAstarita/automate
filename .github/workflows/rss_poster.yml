@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Gives the bot permission to push sent_posts.json updates back to the repo
 
     steps:
     - name: Check out repository
