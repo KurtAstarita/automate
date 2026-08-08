@@ -1,0 +1,30 @@
+name: Reschedule Blogger Posts
+
+on:
+  schedule:
+    # Runs at 00:00 UTC on the 1st and 15th of every month (every ~14 days)
+    - cron: '0 0 1,15 * *'
+  workflow_dispatch: # Allows manual trigger anytime via GitHub UI
+
+jobs:
+  reschedule:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Google API Libraries
+        run: pip install google-api-python-client google-auth
+
+      - name: Run Reschedule Script
+        env:
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+        run: python reschedule_blogger.py
