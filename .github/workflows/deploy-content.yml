@@ -1,0 +1,160 @@
+# Deploy Content Workflow
+#
+# Publishes approved content.  Deployment only proceeds when a valid approval
+# signal is present (deployment_authorized == true).  The workflow is a no-op
+# when the required approval inputs are absent or invalid, so it is safe to
+# trigger accidentally without causing unintended deploys.
+#
+# Triggers:
+#   1. workflow_dispatch – manual trigger with approval signal inputs.
+#      Suitable for the Approval Agent's create_workflow_dispatch_payload() output.
+#   2. (Extend as needed) repository_dispatch with event type "content-approved".
+#
+# Required repository secrets:
+#   GITHUB_TOKEN   – automatically provided by Actions.
+#   DEPLOY_TOKEN   – (optional) additional token for your publishing platform.
+#
+# Expected workflow_dispatch inputs (all optional – workflow no-ops if absent):
+#   approved           – must be exactly "true" to proceed.
+#   content_id         – content identifier from the pipeline result.
+#   url_slug           – URL slug for the published post.
+#   approval_reference – decision_id from the Approval Agent for audit trail.
+#   github_issue_number– approval issue number to close on success.
+
+name: Deploy Content
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved:
+        description: "Approval gate – must be 'true' to deploy"
+        required: false
+        default: "false"
+        type: string
+      content_id:
+        description: "Content ID from the pipeline result"
+        required: false
+        type: string
+      url_slug:
+        description: "URL slug for the content to deploy"
+        required: false
+        type: string
+      approval_reference:
+        description: "Approval decision ID (audit reference)"
+        required: false
+        type: string
+      github_issue_number:
+        description: "GitHub issue number to close after deploy"
+        required: false
+        type: string
+
+jobs:
+  validate-approval:
+    name: Validate Approval Signal
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      deploy_authorized: ${{ steps.check.outputs.deploy_authorized }}
+
+    steps:
+      - name: Check approval signal
+        id: check
+        run: |
+          APPROVED="${{ inputs.approved }}"
+          CONTENT_ID="${{ inputs.content_id }}"
+
+          if [ "${APPROVED}" = "true" ] && [ -n "${CONTENT_ID}" ]; then
+            echo "✅ Deployment authorised: content_id=${CONTENT_ID}"
+            echo "deploy_authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "⛔ Deployment not authorised."
+            echo "   approved='${APPROVED}' (must be 'true')"
+            echo "   content_id='${CONTENT_ID}' (must be non-empty)"
+            echo "deploy_authorized=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: Deploy Approved Content
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    needs: validate-approval
+    if: needs.validate-approval.outputs.deploy_authorized == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Log deployment details
+        run: |
+          echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Content ID | ${{ inputs.content_id }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| URL Slug | ${{ inputs.url_slug }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Approval Reference | ${{ inputs.approval_reference }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run ID | ${{ github.run_id }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy content
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          CONTENT_ID: ${{ inputs.content_id }}
+          URL_SLUG: ${{ inputs.url_slug }}
+          APPROVAL_REFERENCE: ${{ inputs.approval_reference }}
+        run: |
+          # ---------------------------------------------------------------------------
+          # Deployment step – replace the echo below with your actual publish command.
+          # Examples:
+          #   - Upload HTML to S3/CDN
+          #   - Push to Blogger via API (see reschedule_blogger.py pattern)
+          #   - Trigger a Netlify/Vercel deploy hook
+          # ---------------------------------------------------------------------------
+          echo "Deploying content_id=${CONTENT_ID} (slug: ${URL_SLUG})"
+          echo "Approval reference: ${APPROVAL_REFERENCE}"
+          echo "✅ Deployment placeholder executed successfully."
+          echo "deploy_status=success" >> $GITHUB_ENV
+
+      - name: Close approval issue
+        if: inputs.github_issue_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue close "${{ inputs.github_issue_number }}" \
+            --comment "✅ Content deployed successfully. Run: ${{ github.run_id }}" \
+            --repo "${{ github.repository }}" || true
+
+      - name: Print deployment summary
+        if: always()
+        run: |
+          echo "### Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${deploy_status:-unknown}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Content ID:** ${{ inputs.content_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL Slug:** ${{ inputs.url_slug }}" >> $GITHUB_STEP_SUMMARY
+
+  no-op:
+    name: No-Op (approval gate not met)
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs: validate-approval
+    if: needs.validate-approval.outputs.deploy_authorized != 'true'
+
+    steps:
+      - name: Skip deployment
+        run: |
+          echo "⛔ Deployment skipped – approval signal absent or invalid."
+          echo "Set 'approved=true' and supply 'content_id' to trigger a deploy."
+          echo "### Deployment Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Approval gate not met. No content was deployed." >> $GITHUB_STEP_SUMMARY

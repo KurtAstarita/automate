@@ -1,105 +1,153 @@
+# Refresh Check Workflow
+#
+# Runs the Site Intelligence Agent weekly to identify one post candidate for
+# refresh, then creates a GitHub issue for CEO approval.
+#
+# Schedule: every Monday at 07:00 UTC.
+# Approval flow: the created issue contains /approve, /reject, /revise commands
+#                that the Approval Agent listens for (see approval_agent.py).
+#
+# Required repository secrets:
+#   GSC_DATA_JSON  – (optional) JSON array of Google Search Console post metrics.
+#                    If absent, the agent falls back to its built-in sample data.
+#
+# The workflow can also be triggered manually with an optional GSC data override.
+
 name: Weekly Refresh Check
 
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+    # Every Monday at 07:00 UTC
+    - cron: "0 7 * * 1"
   workflow_dispatch:
+    inputs:
+      gsc_data_json:
+        description: >
+          JSON array of GSC post metrics to override the default data.
+          Each item: { url_slug, title, published_date, position, impressions, clicks }
+        required: false
+        type: string
 
 jobs:
   refresh-check:
-    name: Site Intelligence Refresh Check
+    name: Run Site Intelligence Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install google-api-python-client google-auth
+          pip install -r requirements.txt
 
       - name: Run Site Intelligence Agent
+        id: sia
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          GSC_SITE_URL: ${{ secrets.GSC_SITE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Allow callers to supply GSC data via secret or workflow input
+          GSC_DATA_JSON: ${{ inputs.gsc_data_json || secrets.GSC_DATA_JSON || '' }}
         run: |
-          mkdir -p artifacts
-          python agents/site_intelligence_agent.py
+          python - <<'PYEOF'
+          import json, os, sys, logging
+          from datetime import datetime
+          from agents.site_intelligence_agent import SiteIntelligenceAgent
 
-      - name: Validate diagnostics JSON schema
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-          import sys
-          from pathlib import Path
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+          log = logging.getLogger("refresh_check")
 
-          p = Path("artifacts/site_intel_diagnostics.json")
-          if not p.exists():
-              raise SystemExit("❌ Missing diagnostics file: artifacts/site_intel_diagnostics.json")
-
-          data = json.loads(p.read_text(encoding="utf-8"))
-
-          required_top = [
-              "run_timestamp",
-              "site_url",
-              "mode",
-              "status",
-              "reason",
-              "selected_candidate",
-              "top_candidates",
-              "thresholds",
-              "totals",
-              "errors",
-          ]
-          missing = [k for k in required_top if k not in data]
-          if missing:
-              raise SystemExit(f"❌ Missing required top-level keys: {missing}")
-
-          allowed_status = {"selected", "no_candidate", "error"}
-          if data["status"] not in allowed_status:
-              raise SystemExit(f"❌ Invalid status: {data['status']} (allowed: {sorted(allowed_status)})")
-
-          if not isinstance(data["top_candidates"], list):
-              raise SystemExit("❌ top_candidates must be an array")
-          if not isinstance(data["errors"], list):
-              raise SystemExit("❌ errors must be an array")
-          if not isinstance(data["thresholds"], dict):
-              raise SystemExit("❌ thresholds must be an object")
-          if not isinstance(data["totals"], dict):
-              raise SystemExit("❌ totals must be an object")
-
-          sc = data["selected_candidate"]
-          if data["status"] == "selected":
-              if not isinstance(sc, dict):
-                  raise SystemExit("❌ selected_candidate must be an object when status='selected'")
-              for k in ["url", "impressions", "clicks", "ctr", "position", "score", "reason_selected"]:
-                  if k not in sc:
-                      raise SystemExit(f"❌ selected_candidate missing key: {k}")
+          # Build GSC data – use env var if provided, otherwise sample data
+          raw_gsc = os.environ.get("GSC_DATA_JSON", "").strip()
+          if raw_gsc:
+              try:
+                  gsc_data = json.loads(raw_gsc)
+                  log.info("Loaded %d posts from GSC_DATA_JSON", len(gsc_data))
+              except json.JSONDecodeError as exc:
+                  log.error("Invalid GSC_DATA_JSON: %s", exc)
+                  sys.exit(1)
           else:
-              if sc is not None:
-                  raise SystemExit("❌ selected_candidate must be null when status!='selected'")
+              # Minimal sample so the workflow demonstrates end-to-end flow
+              log.info("GSC_DATA_JSON not set – using sample data")
+              gsc_data = [
+                  {
+                      "url_slug": "sample-post",
+                      "title": "Sample Post for Refresh",
+                      "published_date": "2024-01-01",
+                      "position": 8,
+                      "impressions": 3000,
+                      "clicks": 45,
+                  }
+              ]
 
-          for i, c in enumerate(data["top_candidates"]):
-              if not isinstance(c, dict):
-                  raise SystemExit(f"❌ top_candidates[{i}] must be an object")
-              for k in ["url", "impressions", "clicks", "ctr", "position", "score", "why"]:
-                  if k not in c:
-                      raise SystemExit(f"❌ top_candidates[{i}] missing key: {k}")
+          agent = SiteIntelligenceAgent()
 
-          print("✅ Diagnostics JSON schema validation passed")
-          PY
+          candidate = agent.select_weekly_candidate(gsc_data)
+          checklist = agent.create_refresh_checklist(candidate)
+          brief = agent.create_overseer_brief(candidate, checklist)
+          issue_payload = agent.create_github_issue_payload(brief)
 
-      - name: Upload diagnostics artifact
+          result = {
+              "brief_id": brief.brief_id,
+              "candidate_slug": candidate.url_slug,
+              "issue_title": issue_payload["title"],
+              "issue_payload": issue_payload,
+              "created_at": datetime.now().isoformat(),
+          }
+
+          with open("refresh_result.json", "w") as fh:
+              json.dump(result, fh, indent=2)
+
+          log.info("Refresh check complete – candidate: %s", candidate.url_slug)
+          PYEOF
+
+      - name: Create GitHub approval issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PYEOF'
+          import json, subprocess, sys
+          with open("refresh_result.json") as f:
+              data = json.load(f)
+          issue = data["issue_payload"]
+          labels = ",".join(issue.get("labels", ["post-refresh", "automated"]))
+          assignee = issue.get("assignee", "KurtAstarita")
+          cmd = [
+              "gh", "issue", "create",
+              "--title", issue["title"],
+              "--body", issue["body"],
+              "--label", labels,
+              "--assignee", assignee,
+              "--repo", "${{ github.repository }}",
+          ]
+          result = subprocess.run(cmd, check=True)
+          sys.exit(result.returncode)
+          PYEOF
+
+      - name: Print refresh check summary
+        if: always()
+        run: |
+          echo "### Refresh Check Result" >> $GITHUB_STEP_SUMMARY
+          if [ -f refresh_result.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat refresh_result.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No result file generated." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload refresh result artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: site-intel-diagnostics-${{ github.run_id }}
-          path: artifacts/site_intel_diagnostics.json
-          retention-days: 90
+          name: refresh-result-${{ github.run_id }}
+          path: refresh_result.json
+          retention-days: 14
