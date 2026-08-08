@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import os
 import sys
 import traceback
 from dataclasses import asdict, is_dataclass
@@ -16,32 +15,10 @@ if str(REPO_ROOT) not in sys.path:
 from agents.approval_agent import ApprovalAgent
 from agents.boss_agent import BossAgent, ContentType, TargetAudience
 from agents.content_agency import ContentAgency
+from agents.ghost_controls import ghost_controls
 from agents.onpage_seo_agency import OnPageSEOAgency
 from agents.site_intelligence_agent import OverseerRefreshValidator, SiteIntelligenceAgent
 from agents.the_overseer import TheOverseer
-
-
-TRUTHY = {"1", "true", "yes", "on"}
-
-
-def _env_flag(name: str, default: bool) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in TRUTHY
-
-
-def _ghost_controls() -> Dict[str, bool]:
-    ghost_mode = _env_flag("GHOST_MODE", False)
-    dry_run = _env_flag("DRY_RUN", ghost_mode)
-    allow_side_effects_default = not (ghost_mode or dry_run)
-    allow_side_effects = _env_flag("ALLOW_SIDE_EFFECTS", allow_side_effects_default)
-    return {
-        "ghost_mode": ghost_mode,
-        "dry_run": dry_run,
-        "allow_side_effects": allow_side_effects,
-    }
-
 
 def _to_dict(value: Any) -> Any:
     return asdict(value) if is_dataclass(value) else value
@@ -271,24 +248,25 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    controls = _ghost_controls()
-    if not controls["ghost_mode"] or not controls["dry_run"] or controls["allow_side_effects"]:
-        raise RuntimeError(
-            "Ghost harness requires GHOST_MODE=true, DRY_RUN=true, ALLOW_SIDE_EFFECTS=false"
-        )
-
-    fixture_path = Path(args.fixtures_dir) / f"{args.scenario}.json"
-    if not fixture_path.exists():
-        raise FileNotFoundError(f"Missing scenario fixture: {fixture_path}")
-
-    scenario = json.loads(fixture_path.read_text(encoding="utf-8"))
     output_root = Path(args.output_dir) / args.scenario
     output_root.mkdir(parents=True, exist_ok=True)
     logs_dir = output_root / "agent_logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 
+    controls: Dict[str, Any] = {}
     report: Dict[str, Any]
     try:
+        controls = ghost_controls()
+        if not (controls["ghost_mode"] and controls["dry_run"] and not controls["allow_side_effects"]):
+            raise RuntimeError(
+                "Ghost harness requires GHOST_MODE=true, DRY_RUN=true, ALLOW_SIDE_EFFECTS=false"
+            )
+
+        fixture_path = Path(args.fixtures_dir) / f"{args.scenario}.json"
+        if not fixture_path.exists():
+            raise FileNotFoundError(f"Missing scenario fixture: {fixture_path}")
+
+        scenario = json.loads(fixture_path.read_text(encoding="utf-8"))
         site_intel = _run_site_intel(scenario)
         pipeline = _run_pipeline(scenario)
         checks = _validate_contracts(pipeline, site_intel["diagnostics"])

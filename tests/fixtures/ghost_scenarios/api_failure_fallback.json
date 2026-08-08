@@ -7,6 +7,7 @@
   "approval_status": "approved",
   "site_intel": {
     "simulate_api_failure": true,
+    "ga4_metrics": {},
     "gsc_data": [
       {
         "post_id": "post_af_001",
