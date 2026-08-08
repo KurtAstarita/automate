@@ -1,0 +1,115 @@
+# Content Pipeline Workflow
+#
+# Manually triggers the full 5-stage content production pipeline:
+#   Stage 1  Boss Agent          – research & briefing
+#   Stage 2  Content Agency      – creative writing
+#   Stage 3  On-Page SEO Agency  – technical optimisation
+#   Stage 4  The Overseer        – QA & terminal briefing
+#   Stage 5  Approval Agent      – creates a GitHub issue for CEO approval
+#
+# Required repository secrets (Settings → Secrets → Actions):
+#   GITHUB_TOKEN  – automatically provided by Actions; used to create the
+#                   approval issue via the GitHub API if the agent calls it.
+#
+# Optional repository variables / secrets:
+#   BASE_URL      – publication base URL (default: https://kurtastarita.com)
+
+name: Content Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Primary topic or brief for the new content piece"
+        required: true
+        type: string
+      content_type:
+        description: "Content type"
+        required: false
+        default: "blog_post"
+        type: choice
+        options:
+          - blog_post
+          - tutorial
+          - case_study
+          - whitepaper
+          - opinion_piece
+          - research_article
+          - industry_report
+      audience:
+        description: "Target audience"
+        required: false
+        default: "general_tech"
+        type: choice
+        options:
+          - general_tech
+          - developers
+          - product_managers
+          - business_leaders
+          - enterprises
+          - startups
+          - marketing_teams
+      industry:
+        description: "Industry vertical (e.g. SaaS, FinTech)"
+        required: false
+        default: "General"
+        type: string
+      dry_run:
+        description: "Dry run – skip GitHub issue creation (Stage 5)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  run-pipeline:
+    name: Run Content Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run pipeline orchestrator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_URL: ${{ vars.BASE_URL || 'https://kurtastarita.com' }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+
+          python pipeline_orchestrator.py \
+            --topic      "${{ inputs.topic }}" \
+            --content-type "${{ inputs.content_type }}" \
+            --audience   "${{ inputs.audience }}" \
+            --industry   "${{ inputs.industry }}" \
+            --base-url   "${BASE_URL}" \
+            --repository "${{ github.repository }}" \
+            --output     pipeline_result.json \
+            ${DRY_RUN_FLAG}
+
+      - name: Print pipeline result summary
+        run: |
+          echo "### Pipeline Result" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat pipeline_result.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload pipeline result artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-result-${{ github.run_id }}
+          path: pipeline_result.json
+          retention-days: 30
