@@ -1,0 +1,29 @@
+{
+  "name": "happy_path",
+  "topic": "AI-Powered Content Automation",
+  "industry": "SaaS",
+  "content_type": "industry_report",
+  "target_audience": "product_managers",
+  "approval_status": "approved",
+  "site_intel": {
+    "simulate_api_failure": false,
+    "gsc_data": [
+      {
+        "post_id": "post_hp_001",
+        "url_slug": "ai-powered-content-automation",
+        "title": "AI-Powered Content Automation",
+        "published_date": "2024-01-15T00:00:00Z",
+        "position": 8,
+        "impressions": 5200,
+        "clicks": 65
+      }
+    ],
+    "ga4_metrics": {
+      "ai-powered-content-automation": {
+        "sessions": 4200,
+        "engagement_rate": 0.42,
+        "conversions": 12.0
+      }
+    }
+  }
+}

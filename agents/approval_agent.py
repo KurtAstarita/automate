@@ -11,6 +11,7 @@ Handoff Output: DEPLOYMENT_AUTHORIZED signal to GitHub Actions pipeline.
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict, field
@@ -23,6 +24,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+TRUTHY = {"1", "true", "yes", "on"}
 
 
 class ApprovalStatus(Enum):
@@ -69,10 +71,10 @@ class ApprovalDecision:
     approved_by: str  # GitHub username
     approval_timestamp: str
     approval_method: str  # comment, label, reaction
-    approval_comment: Optional[str] = None
     
     # Action tracking
     action_taken: str  # deployment_triggered, revision_scheduled
+    approval_comment: Optional[str] = None
     action_timestamp: str = ""
     github_actions_workflow_id: Optional[str] = None
     
@@ -332,6 +334,18 @@ class ApprovalAgent:
         self.stage = "Stage 5: CEO Review & Approval"
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
         self.issue_builder = GitHubApprovalIssueBuilder()
+
+    def _is_enabled(self, name: str, default: bool) -> bool:
+        value = os.getenv(name)
+        if value is None:
+            return default
+        return value.strip().lower() in TRUTHY
+
+    def _side_effects_allowed(self) -> bool:
+        ghost_mode = self._is_enabled("GHOST_MODE", False)
+        dry_run = self._is_enabled("DRY_RUN", ghost_mode)
+        default_allow = not (ghost_mode or dry_run)
+        return self._is_enabled("ALLOW_SIDE_EFFECTS", default_allow)
     
     def create_approval_issue(
         self,
@@ -468,7 +482,18 @@ class ApprovalAgent:
             Deployment signal dictionary
         """
         self.logger.info(f"Generating deployment signal: {approval_decision.decision_id}")
-        
+
+        if not self._side_effects_allowed():
+            signal = {
+                "deployment_authorized": False,
+                "signal_type": "DEPLOYMENT_BLOCKED_DRY_RUN",
+                "reason": "Side effects disabled by ghost-mode controls",
+                "approval_decision": asdict(approval_decision),
+                "timestamp": datetime.now().isoformat()
+            }
+            self.logger.info("Deployment blocked - ghost mode or dry run is active")
+            return signal
+
         if approval_decision.status != "approved":
             signal = {
                 "deployment_authorized": False,
