@@ -1,0 +1,29 @@
+{
+  "name": "adversarial_input",
+  "topic": "Contradictory Automation Signals",
+  "industry": "Testing",
+  "content_type": "malformed_report",
+  "target_audience": "ghosts",
+  "approval_status": "ship_it_now",
+  "site_intel": {
+    "simulate_api_failure": true,
+    "gsc_data": [
+      {
+        "post_id": "post_adv_001",
+        "url_slug": "contradictory-automation-signals",
+        "title": "Contradictory Automation Signals",
+        "published_date": "not-a-date",
+        "position": "bad-rank",
+        "impressions": -12,
+        "clicks": "unknown"
+      }
+    ],
+    "ga4_metrics": {
+      "contradictory-automation-signals": {
+        "sessions": "invalid",
+        "engagement_rate": 2,
+        "conversions": "invalid"
+      }
+    }
+  }
+}

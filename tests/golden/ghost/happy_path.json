@@ -1,0 +1,146 @@
+{
+  "scenario": "happy_path",
+  "contract_version": "2.0",
+  "snapshot": {
+    "contract_version": "2.0",
+    "stage_order": [
+      "boss_agent",
+      "content_agency",
+      "onpage_seo_agency",
+      "the_overseer",
+      "approval_agent"
+    ],
+    "site_intelligence": {
+      "candidate_slug": "ai-powered-content-automation",
+      "candidate_title": "AI-Powered Content Automation",
+      "validation_status": "pending_checklist",
+      "checklist_complete": false,
+      "fallback_used": false,
+      "error_reasons": [],
+      "issue_title": "[POST REFRESH] AI-Powered Content Automation (Pos. 8, 1.25% CTR)"
+    },
+    "boss_agent": {
+      "target_focus": "AI-Powered Content Automation",
+      "content_type": "industry_report",
+      "primary_keywords": [
+        "AI-Powered Content Automation",
+        "AI-Powered Content Automation guide",
+        "AI-Powered Content Automation best practices"
+      ],
+      "handoff_status": "READY_FOR_AGENCY"
+    },
+    "content_agency": {
+      "title": "Ai-Powered Content Automation",
+      "voice_used": "authoritative",
+      "tone_used": "educational",
+      "section_count": 8,
+      "handoff_status": "RAW_CREATIVE_DRAFT_COMPLETE"
+    },
+    "onpage_seo_agency": {
+      "url_slug": "ai-powered-content-automation",
+      "seo_score": 100.0,
+      "reading_time_minutes": 6,
+      "internal_link_count": 2,
+      "warnings_count": 0,
+      "handoff_status": "SEO_OPTIMIZED_CONTENT_COMPLETE"
+    },
+    "the_overseer": {
+      "pipeline_status": "complete",
+      "total_quality_score": 68.29,
+      "risk_level": "high",
+      "production_ready": false,
+      "content_url": "https://kurtastarita.com/ai-powered-content-automation",
+      "dispatch_type": "TERMINAL_BRIEFING_PKG"
+    },
+    "approval_agent": {
+      "issue_title": "[CONTENT APPROVAL] \u26a0\ufe0f Ai-Powered Content Automation",
+      "labels": [
+        "content-approval",
+        "requires-attention",
+        "status-high"
+      ],
+      "decision_status": "approved",
+      "signal_type": "DEPLOYMENT_BLOCKED_DRY_RUN",
+      "workflow_dispatch_enabled": false
+    }
+  },
+  "reliability_metrics": {
+    "scenario": "happy_path",
+    "contract_version": "2.0",
+    "definitions": {
+      "pass_rate": "Passed checks divided by total checks for the stage in this single run.",
+      "fallback_rate": "1.0 when the stage used a fallback or defaulted input during this run, otherwise 0.0.",
+      "retry_rate": "Retries attempted divided by retry opportunities; the harness does not retry stages today so this is deterministically 0.0.",
+      "avg_runtime_ms": "Wall-clock runtime for the stage in milliseconds for this run.",
+      "missing_required_field_rate": "Failed required-field checks divided by total required-field checks for the stage."
+    },
+    "stages": {
+      "site_intelligence": {
+        "pass_rate": 1.0,
+        "fallback_rate": 0.0,
+        "retry_rate": 0.0,
+        "avg_runtime_ms": 0,
+        "missing_required_field_rate": 0.0,
+        "checks_passed": 14,
+        "checks_total": 14,
+        "required_fields_missing": 0,
+        "required_fields_total": 8
+      },
+      "boss_agent": {
+        "pass_rate": 1.0,
+        "fallback_rate": 0.0,
+        "retry_rate": 0.0,
+        "avg_runtime_ms": 0,
+        "missing_required_field_rate": 0.0,
+        "checks_passed": 6,
+        "checks_total": 6,
+        "required_fields_missing": 0,
+        "required_fields_total": 4
+      },
+      "content_agency": {
+        "pass_rate": 1.0,
+        "fallback_rate": 0.0,
+        "retry_rate": 0.0,
+        "avg_runtime_ms": 1,
+        "missing_required_field_rate": 0.0,
+        "checks_passed": 7,
+        "checks_total": 7,
+        "required_fields_missing": 0,
+        "required_fields_total": 4
+      },
+      "onpage_seo_agency": {
+        "pass_rate": 1.0,
+        "fallback_rate": 0.0,
+        "retry_rate": 0.0,
+        "avg_runtime_ms": 2,
+        "missing_required_field_rate": 0.0,
+        "checks_passed": 9,
+        "checks_total": 9,
+        "required_fields_missing": 0,
+        "required_fields_total": 6
+      },
+      "the_overseer": {
+        "pass_rate": 1.0,
+        "fallback_rate": 0.0,
+        "retry_rate": 0.0,
+        "avg_runtime_ms": 1,
+        "missing_required_field_rate": 0.0,
+        "checks_passed": 8,
+        "checks_total": 8,
+        "required_fields_missing": 0,
+        "required_fields_total": 5
+      },
+      "approval_agent": {
+        "pass_rate": 1.0,
+        "fallback_rate": 0.0,
+        "retry_rate": 0.0,
+        "avg_runtime_ms": 0,
+        "missing_required_field_rate": 0.0,
+        "checks_passed": 10,
+        "checks_total": 10,
+        "required_fields_missing": 0,
+        "required_fields_total": 5
+      }
+    }
+  }
+}

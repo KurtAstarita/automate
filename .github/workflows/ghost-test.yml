@@ -1,6 +1,8 @@
 name: Ghost Agent E2E Test
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * *"
@@ -13,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [happy_path, low_data, api_failure_fallback]
+        scenario: [happy_path, low_data, api_failure_fallback, adversarial_input]
     env:
       GHOST_MODE: "true"
       DRY_RUN: "true"
@@ -43,12 +45,10 @@ jobs:
       - name: Summarize ghost run
         if: always()
         run: |
-          REPORT="ghost-artifacts/${{ matrix.scenario }}/ghost_run_report.json"
+          REPORT="ghost-artifacts/${{ matrix.scenario }}/ghost_summary.md"
           echo "### Ghost Test - ${{ matrix.scenario }}" >> "$GITHUB_STEP_SUMMARY"
           if [ -f "$REPORT" ]; then
-            echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Report missing: $REPORT" >> "$GITHUB_STEP_SUMMARY"
           fi
