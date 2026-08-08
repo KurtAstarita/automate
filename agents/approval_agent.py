@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict, field
 from enum import Enum
+from agents.ghost_controls import side_effects_allowed
 
 
 # Configure logging
@@ -72,7 +73,7 @@ class ApprovalDecision:
     approval_comment: Optional[str] = None
     
     # Action tracking
-    action_taken: str  # deployment_triggered, revision_scheduled
+    action_taken: str = ""  # deployment_triggered, revision_scheduled
     action_timestamp: str = ""
     github_actions_workflow_id: Optional[str] = None
     
@@ -468,7 +469,18 @@ class ApprovalAgent:
             Deployment signal dictionary
         """
         self.logger.info(f"Generating deployment signal: {approval_decision.decision_id}")
-        
+
+        if not side_effects_allowed():
+            signal = {
+                "deployment_authorized": False,
+                "signal_type": "DEPLOYMENT_BLOCKED_DRY_RUN",
+                "reason": "Side effects disabled by ghost-mode controls",
+                "approval_decision": asdict(approval_decision),
+                "timestamp": datetime.now().isoformat()
+            }
+            self.logger.info("Deployment blocked - ghost mode or dry run is active")
+            return signal
+
         if approval_decision.status != "approved":
             signal = {
                 "deployment_authorized": False,
