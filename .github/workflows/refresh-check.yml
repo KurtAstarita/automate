@@ -1,0 +1,105 @@
+name: Weekly Refresh Check
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  refresh-check:
+    name: Site Intelligence Refresh Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-api-python-client google-auth
+
+      - name: Run Site Intelligence Agent
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GSC_SITE_URL: ${{ secrets.GSC_SITE_URL }}
+        run: |
+          mkdir -p artifacts
+          python agents/site_intelligence_agent.py
+
+      - name: Validate diagnostics JSON schema
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          p = Path("artifacts/site_intel_diagnostics.json")
+          if not p.exists():
+              raise SystemExit("❌ Missing diagnostics file: artifacts/site_intel_diagnostics.json")
+
+          data = json.loads(p.read_text(encoding="utf-8"))
+
+          required_top = [
+              "run_timestamp",
+              "site_url",
+              "mode",
+              "status",
+              "reason",
+              "selected_candidate",
+              "top_candidates",
+              "thresholds",
+              "totals",
+              "errors",
+          ]
+          missing = [k for k in required_top if k not in data]
+          if missing:
+              raise SystemExit(f"❌ Missing required top-level keys: {missing}")
+
+          allowed_status = {"selected", "no_candidate", "error"}
+          if data["status"] not in allowed_status:
+              raise SystemExit(f"❌ Invalid status: {data['status']} (allowed: {sorted(allowed_status)})")
+
+          if not isinstance(data["top_candidates"], list):
+              raise SystemExit("❌ top_candidates must be an array")
+          if not isinstance(data["errors"], list):
+              raise SystemExit("❌ errors must be an array")
+          if not isinstance(data["thresholds"], dict):
+              raise SystemExit("❌ thresholds must be an object")
+          if not isinstance(data["totals"], dict):
+              raise SystemExit("❌ totals must be an object")
+
+          sc = data["selected_candidate"]
+          if data["status"] == "selected":
+              if not isinstance(sc, dict):
+                  raise SystemExit("❌ selected_candidate must be an object when status='selected'")
+              for k in ["url", "impressions", "clicks", "ctr", "position", "score", "reason_selected"]:
+                  if k not in sc:
+                      raise SystemExit(f"❌ selected_candidate missing key: {k}")
+          else:
+              if sc is not None:
+                  raise SystemExit("❌ selected_candidate must be null when status!='selected'")
+
+          for i, c in enumerate(data["top_candidates"]):
+              if not isinstance(c, dict):
+                  raise SystemExit(f"❌ top_candidates[{i}] must be an object")
+              for k in ["url", "impressions", "clicks", "ctr", "position", "score", "why"]:
+                  if k not in c:
+                      raise SystemExit(f"❌ top_candidates[{i}] missing key: {k}")
+
+          print("✅ Diagnostics JSON schema validation passed")
+          PY
+
+      - name: Upload diagnostics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-intel-diagnostics-${{ github.run_id }}
+          path: artifacts/site_intel_diagnostics.json
+          retention-days: 90
