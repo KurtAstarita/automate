@@ -31,7 +31,7 @@ jobs:
           BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
           BLOG_ID: ${{ secrets.BLOG_ID }}
-        run: python scripts/reschedule_blogger.py
+        run: python reschedule_blogger.py
 
       - name: Step 2 - Wait for RSS Feed propagation
         run: sleep 30
@@ -42,4 +42,4 @@ jobs:
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           SITE_HOST: "kurtasterita.com"
           RSS_FEED_URL: "https://kurtasterita.com/feeds/posts/default"
-        run: python scripts/fast_indexing.py
+        run: python fast_indexing.py
