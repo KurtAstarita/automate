@@ -1,0 +1,23 @@
+{
+  "name": "low_data",
+  "topic": "Content Automation Basics",
+  "industry": "General",
+  "content_type": "blog_post",
+  "target_audience": "developers",
+  "approval_status": "approved",
+  "site_intel": {
+    "simulate_api_failure": false,
+    "gsc_data": [
+      {
+        "post_id": "post_ld_001",
+        "url_slug": "tiny-sample",
+        "title": "Tiny Sample",
+        "published_date": "2025-01-01T00:00:00Z",
+        "position": 24,
+        "impressions": 40,
+        "clicks": 1
+      }
+    ],
+    "ga4_metrics": {}
+  }
+}
