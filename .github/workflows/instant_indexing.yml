@@ -1,27 +1,16 @@
-name: Fast API Indexing Engine
+name: Fast API Indexing
 
 on:
   schedule:
-    # Runs every 6 hours to check feed updates
-    - cron: '0 */6 * * *'
+    - cron: '0 */6 * * *' # Runs every 6 hours to check for new feed updates
   workflow_run:
-    # Automatically triggers when your publishing or rescheduling workflow completes
-    workflows: ["Reschedule Blogger Posts", "Pre-Publish SEO Gate"]
+    workflows: ["Reschedule Blogger Posts"] # Or your publish/build workflow name
     types: [completed]
-  workflow_dispatch:
-    inputs:
-      custom_url:
-        description: 'Specific URL to submit (leave blank to pull from RSS)'
-        required: false
-        type: string
+  workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
   index-urls:
-    name: Ping Search Engine APIs
     runs-on: ubuntu-latest
-    # Only run if triggered manually, scheduled, or if the parent workflow succeeded
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -29,22 +18,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.x'
 
-      - name: Install Python API Libraries
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests google-api-python-client google-auth feedparser
+      - name: Install Dependencies
+        run: pip install requests google-api-python-client google-auth feedparser
 
-      - name: Submit URLs to Search Engines
+      - name: Trigger API Indexing
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           SITE_HOST: "kurtasterita.com"
           RSS_FEED_URL: "https://kurtasterita.com/feeds/posts/default"
-        run: |
-          if [ -n "${{ github.event.inputs.custom_url }}" ]; then
-            python fast_indexing.py "${{ github.event.inputs.custom_url }}"
-          else
-            python fast_indexing.py
-          fi
+        run: python scripts/fast_indexing.py
