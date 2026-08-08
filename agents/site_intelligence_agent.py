@@ -137,9 +137,10 @@ class SiteIntelligenceAgent:
         3. 6+ months old
         
         When *ga4_metrics* is provided (slug → {sessions, engagement_rate,
-        conversions}) the GSC score is blended with a GA4 engagement signal so
-        pages with higher real-world engagement rank lower (less urgent to
-        refresh) and low-engagement high-impression pages rank higher.
+        conversions}) the GSC score is blended with a normalised GA4 urgency
+        signal: pages with high reach (sessions) and low engagement rate score
+        higher (more urgent to refresh).  Both signals are normalised to [0,1]
+        before blending so neither dominates due to scale differences.
         
         Args:
             gsc_data:    List of posts with GSC metrics
@@ -217,31 +218,48 @@ class SiteIntelligenceAgent:
         self.logger.info(f"✓ Selected: {selected.title} ({selected.url_slug})")
         return selected
 
+    # Reference maximum for GSC score normalisation (impressions cap used as denominator).
+    # Typical upper bound: 2000 base + (50 000 impressions / 100) = 2500.  Adjust if needed.
+    _GSC_SCORE_MAX: float = 2500.0
+
     def _blend_score(
         self,
         gsc_score: float,
         ga4_row: Optional[Dict],
     ) -> float:
         """
-        Blend GSC score with GA4 engagement signal.
+        Blend GSC score with a normalised GA4 urgency signal.
 
-        GA4 signal: penalise pages that already have high engagement (they
-        need refresh less urgently); boost pages with many sessions but low
-        engagement (high potential after refresh).
+        Both signals are normalised to [0, 1] before blending so they are
+        comparable regardless of their raw magnitudes.
 
-        When ga4_row is None the full weight is given to the GSC score.
+        GSC signal (normalised): higher raw score → page is a better refresh
+        candidate (low CTR, many impressions at borderline position).
+
+        GA4 urgency signal: pages with more sessions AND lower engagement rate
+        are higher priority (lots of visitors experiencing poor engagement).
+        Signal = sessions_norm * (1 - engagement_rate), capped to [0, 1].
+          sessions_norm = min(sessions / GA4_SESSIONS_CAP, 1.0)
+
+        When ga4_row is None the full weight is given to the GSC signal.
         """
+        # Normalise GSC score to [0, 1]
+        gsc_norm = min(gsc_score / max(self._GSC_SCORE_MAX, 1.0), 1.0)
+
         if ga4_row is None:
-            return gsc_score
+            return gsc_norm
 
         sessions = ga4_row.get("sessions", 0) or 0
-        engagement_rate = ga4_row.get("engagement_rate", 0.0) or 0.0
+        engagement_rate = min(ga4_row.get("engagement_rate", 0.0) or 0.0, 1.0)
 
-        # Higher sessions = more reach → slightly higher priority
-        # Lower engagement rate = worse experience → higher urgency
-        ga4_signal = (sessions / 10.0) * (1.0 - min(engagement_rate, 1.0))
+        # Normalise sessions to [0, 1] using a soft cap of 5 000 sessions/period
+        GA4_SESSIONS_CAP = 5000.0
+        sessions_norm = min(sessions / GA4_SESSIONS_CAP, 1.0)
 
-        return GSC_WEIGHT * gsc_score + GA4_WEIGHT * ga4_signal
+        # Pages with high reach (sessions) and low engagement are most urgent
+        ga4_urgency = sessions_norm * (1.0 - engagement_rate)
+
+        return GSC_WEIGHT * gsc_norm + GA4_WEIGHT * ga4_urgency
     
     def _days_since(self, date_str: str) -> int:
         """Calculate days since published."""
