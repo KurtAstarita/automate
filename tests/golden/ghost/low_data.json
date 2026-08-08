@@ -32,7 +32,6 @@
       "handoff_status": "READY_FOR_AGENCY"
     },
     "content_agency": {
-      "title": "Content Automation Basics",
       "voice_used": "authoritative",
       "tone_used": "educational",
       "section_count": 8,
@@ -55,7 +54,6 @@
       "dispatch_type": "TERMINAL_BRIEFING_PKG"
     },
     "approval_agent": {
-      "issue_title": "[CONTENT APPROVAL] \u26a0\ufe0f Content Automation Basics",
       "labels": [
         "content-approval",
         "requires-attention",

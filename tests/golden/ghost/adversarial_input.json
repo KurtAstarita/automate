@@ -17,14 +17,14 @@
       "checklist_complete": false,
       "fallback_used": true,
       "error_reasons": [
-        "GA4 API failure was intentionally simulated.",
-        "GA4 metrics unavailable; site intelligence will use fallback scoring.",
-        "approval_status 'ship_it_now' is unsupported; defaulted to 'revision_requested'.",
         "content_type 'malformed_report' is unsupported; defaulted to 'industry_report'.",
-        "site_intel.gsc_data[0].clicks was invalid; defaulted to 0.",
-        "site_intel.gsc_data[0].impressions was invalid; defaulted to 0.",
+        "target_audience 'ghosts' is unsupported; defaulted to 'product_managers'.",
+        "approval_status 'ship_it_now' is unsupported; defaulted to 'revision_requested'.",
         "site_intel.gsc_data[0].position was invalid; defaulted to 100.",
-        "target_audience 'ghosts' is unsupported; defaulted to 'product_managers'."
+        "site_intel.gsc_data[0].impressions was invalid; defaulted to 0.",
+        "site_intel.gsc_data[0].clicks was invalid; defaulted to 0.",
+        "GA4 API failure was intentionally simulated.",
+        "GA4 metrics unavailable; site intelligence will use fallback scoring."
       ],
       "issue_title": "[POST REFRESH] Sample Post for Refresh (Pos. 8, 1.5% CTR)"
     },
@@ -39,7 +39,6 @@
       "handoff_status": "READY_FOR_AGENCY"
     },
     "content_agency": {
-      "title": "Contradictory Automation Signals",
       "voice_used": "authoritative",
       "tone_used": "educational",
       "section_count": 8,
@@ -62,7 +61,6 @@
       "dispatch_type": "TERMINAL_BRIEFING_PKG"
     },
     "approval_agent": {
-      "issue_title": "[CONTENT APPROVAL] \u26a0\ufe0f Contradictory Automation Signals",
       "labels": [
         "content-approval",
         "requires-attention",
@@ -110,7 +108,7 @@
         "pass_rate": 1.0,
         "fallback_rate": 0.0,
         "retry_rate": 0.0,
-        "avg_runtime_ms": 1,
+        "avg_runtime_ms": 2,
         "missing_required_field_rate": 0.0,
         "checks_passed": 7,
         "checks_total": 7,

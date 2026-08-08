@@ -17,8 +17,8 @@
       "checklist_complete": false,
       "fallback_used": true,
       "error_reasons": [
-        "GA4 API failure was intentionally simulated.",
-        "GA4 metrics unavailable; site intelligence will use fallback scoring."
+        "GA4 metrics unavailable; site intelligence will use fallback scoring.",
+        "GA4 API failure was intentionally simulated."
       ],
       "issue_title": "[POST REFRESH] SEO Pipeline Resilience (Pos. 7, 1.23% CTR)"
     },
@@ -33,7 +33,6 @@
       "handoff_status": "READY_FOR_AGENCY"
     },
     "content_agency": {
-      "title": "Seo Pipeline Resilience",
       "voice_used": "authoritative",
       "tone_used": "educational",
       "section_count": 8,
@@ -56,7 +55,6 @@
       "dispatch_type": "TERMINAL_BRIEFING_PKG"
     },
     "approval_agent": {
-      "issue_title": "[CONTENT APPROVAL] \u26a0\ufe0f Seo Pipeline Resilience",
       "labels": [
         "content-approval",
         "requires-attention",

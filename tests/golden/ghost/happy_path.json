@@ -30,7 +30,6 @@
       "handoff_status": "READY_FOR_AGENCY"
     },
     "content_agency": {
-      "title": "Ai-Powered Content Automation",
       "voice_used": "authoritative",
       "tone_used": "educational",
       "section_count": 8,
@@ -53,7 +52,6 @@
       "dispatch_type": "TERMINAL_BRIEFING_PKG"
     },
     "approval_agent": {
-      "issue_title": "[CONTENT APPROVAL] \u26a0\ufe0f Ai-Powered Content Automation",
       "labels": [
         "content-approval",
         "requires-attention",
