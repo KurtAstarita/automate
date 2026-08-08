@@ -26,14 +26,31 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run syndication script
+    - name: Run X (Twitter) syndication
+      continue-on-error: true  # Prevents X errors from stopping Facebook/LinkedIn
       env:
         RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
         X_CONSUMER_KEY: ${{ secrets.X_CONSUMER_KEY }}
         X_CONSUMER_SECRET: ${{ secrets.X_CONSUMER_SECRET }}
         X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
         X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-      run: python main.py
+      run: python post_x.py
+
+    - name: Run Facebook syndication
+      continue-on-error: true
+      env:
+        RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
+        FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+        FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+      run: python post_fb.py
+
+    - name: Run LinkedIn syndication
+      continue-on-error: true
+      env:
+        RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
+        LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+        LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+      run: python post_linkedin.py
 
     - name: Commit and push updated history files
       run: |
