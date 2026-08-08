@@ -52,6 +52,7 @@ jobs:
   validate-approval:
     name: Validate Approval Signal
     runs-on: ubuntu-latest
+    permissions: {}
     outputs:
       deploy_authorized: ${{ steps.check.outputs.deploy_authorized }}
 
@@ -75,6 +76,9 @@ jobs:
   deploy:
     name: Deploy Approved Content
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     needs: validate-approval
     if: needs.validate-approval.outputs.deploy_authorized == 'true'
 
@@ -143,6 +147,7 @@ jobs:
   no-op:
     name: No-Op (approval gate not met)
     runs-on: ubuntu-latest
+    permissions: {}
     needs: validate-approval
     if: needs.validate-approval.outputs.deploy_authorized != 'true'
 
