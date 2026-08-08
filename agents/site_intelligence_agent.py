@@ -5,6 +5,16 @@ Selects 1 post per week for refresh.
 Minimal token usage. Simple approval flow.
 
 Flow: Intelligence Scan → Candidate Selection → Simple Checklist → Overseer → GitHub Issue for Kurt
+
+GA4 integration (v1):
+  When GA4_PROPERTY_ID is configured the agent pulls page-level GA4 metrics
+  and blends them with the GSC score.  If GA4 is unavailable the workflow
+  falls back to GSC-only scoring without failing.
+
+Scoring weights (tune near top of file):
+  GSC_WEIGHT  – fraction of final score from GSC signals (default 0.7)
+  GA4_WEIGHT  – fraction of final score from GA4 signals (default 0.3)
+  When GA4 data is missing for a candidate the full weight reverts to GSC.
 """
 
 import json
@@ -13,6 +23,12 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
+
+# ---------------------------------------------------------------------------
+# Scoring weights – easy to tune
+# ---------------------------------------------------------------------------
+GSC_WEIGHT: float = 0.7
+GA4_WEIGHT: float = 0.3
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +60,10 @@ class PostCandidate:
     days_old: int = 0
     reason_for_refresh: str = ""
     potential_ctr_boost: str = ""  # e.g. "15-25%"
+    # GA4 metrics (populated when GA4 is available)
+    ga4_sessions: Optional[int] = None
+    ga4_engagement_rate: Optional[float] = None
+    ga4_conversions: Optional[float] = None
     
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2)
@@ -105,7 +125,8 @@ class SiteIntelligenceAgent:
     
     def select_weekly_candidate(
         self,
-        gsc_data: List[Dict[str, Any]]
+        gsc_data: List[Dict[str, Any]],
+        ga4_metrics: Optional[Dict[str, Dict]] = None,
     ) -> PostCandidate:
         """
         Select ONE post for refresh this week.
@@ -115,9 +136,16 @@ class SiteIntelligenceAgent:
         2. High impressions (2000+) but low CTR (<2%)
         3. 6+ months old
         
+        When *ga4_metrics* is provided (slug → {sessions, engagement_rate,
+        conversions}) the GSC score is blended with a GA4 engagement signal so
+        pages with higher real-world engagement rank lower (less urgent to
+        refresh) and low-engagement high-impression pages rank higher.
+        
         Args:
-            gsc_data: List of posts with GSC metrics
-                Expected keys: url_slug, title, published_date, position, impressions, clicks
+            gsc_data:    List of posts with GSC metrics
+                         Expected keys: url_slug, title, published_date,
+                         position, impressions, clicks
+            ga4_metrics: Optional GA4 page metrics keyed by url_slug.
         
         Returns:
             PostCandidate - the selected post for this week
@@ -138,13 +166,17 @@ class SiteIntelligenceAgent:
             
             # Score: Only consider positions 5-12 with decent impressions
             if 5 <= position <= 12 and impressions >= 2000 and ctr < 2.0:
-                score = (2000 - ctr * 100) + (impressions / 100)  # Simplistic scoring
+                gsc_score = (2000 - ctr * 100) + (impressions / 100)
+
+                slug = post.get("url_slug", "unknown")
+                ga4_row = (ga4_metrics or {}).get(slug)
+                blended_score = self._blend_score(gsc_score, ga4_row)
                 
                 potential_boost = self._estimate_ctr_boost(position, ctr)
                 
                 candidate = PostCandidate(
                     post_id=post.get("post_id", f"post_{position}"),
-                    url_slug=post.get("url_slug", "unknown"),
+                    url_slug=slug,
                     title=post.get("title", "Untitled"),
                     published_date=published_date,
                     current_position=position,
@@ -154,9 +186,12 @@ class SiteIntelligenceAgent:
                     last_updated=post.get("last_updated"),
                     days_old=days_old,
                     reason_for_refresh=f"Position {position}, {impressions} impressions, {ctr}% CTR",
-                    potential_ctr_boost=potential_boost
+                    potential_ctr_boost=potential_boost,
+                    ga4_sessions=ga4_row.get("sessions") if ga4_row else None,
+                    ga4_engagement_rate=ga4_row.get("engagement_rate") if ga4_row else None,
+                    ga4_conversions=ga4_row.get("conversions") if ga4_row else None,
                 )
-                candidates.append((score, candidate))
+                candidates.append((blended_score, candidate))
         
         if not candidates:
             self.logger.warning("No candidates found matching criteria. Using mock candidate.")
@@ -181,6 +216,32 @@ class SiteIntelligenceAgent:
         
         self.logger.info(f"✓ Selected: {selected.title} ({selected.url_slug})")
         return selected
+
+    def _blend_score(
+        self,
+        gsc_score: float,
+        ga4_row: Optional[Dict],
+    ) -> float:
+        """
+        Blend GSC score with GA4 engagement signal.
+
+        GA4 signal: penalise pages that already have high engagement (they
+        need refresh less urgently); boost pages with many sessions but low
+        engagement (high potential after refresh).
+
+        When ga4_row is None the full weight is given to the GSC score.
+        """
+        if ga4_row is None:
+            return gsc_score
+
+        sessions = ga4_row.get("sessions", 0) or 0
+        engagement_rate = ga4_row.get("engagement_rate", 0.0) or 0.0
+
+        # Higher sessions = more reach → slightly higher priority
+        # Lower engagement rate = worse experience → higher urgency
+        ga4_signal = (sessions / 10.0) * (1.0 - min(engagement_rate, 1.0))
+
+        return GSC_WEIGHT * gsc_score + GA4_WEIGHT * ga4_signal
     
     def _days_since(self, date_str: str) -> int:
         """Calculate days since published."""
