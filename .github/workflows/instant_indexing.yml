@@ -44,7 +44,7 @@ jobs:
           RSS_FEED_URL: "https://kurtasterita.com/feeds/posts/default"
         run: |
           if [ -n "${{ github.event.inputs.custom_url }}" ]; then
-            python scripts/fast_indexing.py "${{ github.event.inputs.custom_url }}"
+            python fast_indexing.py "${{ github.event.inputs.custom_url }}"
           else
-            python scripts/fast_indexing.py
+            python fast_indexing.py
           fi
