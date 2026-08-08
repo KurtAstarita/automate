@@ -72,7 +72,7 @@ class ApprovalDecision:
     approval_comment: Optional[str] = None
     
     # Action tracking
-    action_taken: str = ""  # deployment_triggered, revision_scheduled
+    action_taken: str  # deployment_triggered, revision_scheduled
     action_timestamp: str = ""
     github_actions_workflow_id: Optional[str] = None
     

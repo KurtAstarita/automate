@@ -526,7 +526,7 @@ class ContentDrafter:
         """Generate topic sentence for subsection."""
         topic = brief.get("primary_topic", "this area")
         
-        if self.writing_style.storytelling_elements:
+        if self.writing_style.use_storytelling:
             return f"Consider how {topic} plays out in practice—{subheading.lower()} often determines success."
         elif self.writing_style.use_examples:
             return f"{subheading} showcases why {topic} matters in the real world."
@@ -620,7 +620,7 @@ class ContentDrafter:
         topic = brief.get("primary_topic", "this topic")
         cta = brief.get("call_to_action", "Take action today")
         
-        if self.writing_style.tone == ToneStyle.INSPIRATIONAL:
+        if self.writing_style.voice == VoiceStyle.INSPIRATIONAL:
             return (
                 f"The future of {topic} belongs to organizations that act decisively today. "
                 f"{cta}. The competitive window is open—make it count."
