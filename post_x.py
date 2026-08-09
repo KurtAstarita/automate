@@ -11,7 +11,6 @@ import random
 # File tracking
 SENT_POSTS_FILE = "sent_posts.json"
 REPOSTED_POSTS_FILE = "reposted_posts.json"
-FALLBACK_IMAGE = "fallback.jpg"
 
 # 1. Environment Variable Validation
 RSS_FEED_URL = os.getenv("RSS_FEED_URL")
@@ -115,7 +114,7 @@ def extract_image_url(entry):
 
 
 def prepare_media(entry):
-    """Downloads article image or falls back to local fallback.jpg."""
+    """Downloads article image or returns None if no image is found."""
     image_url = extract_image_url(entry)
     temp_file = "temp_article_img.jpg"
 
@@ -126,10 +125,7 @@ def prepare_media(entry):
                 out_file.write(response.read())
             return temp_file
         except Exception as e:
-            print(f"Failed to download image from feed ({e}). Using fallback image.")
-
-    if os.path.exists(FALLBACK_IMAGE):
-        return FALLBACK_IMAGE
+            print(f"Failed to download image from feed ({e}). Proceeding without media attachment.")
 
     return None
 
