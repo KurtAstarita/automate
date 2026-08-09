@@ -159,24 +159,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python - <<'PYEOF'
-          import json, subprocess, sys
-          with open("refresh_result.json") as f:
-              data = json.load(f)
-          issue = data["issue_payload"]
-          labels = ",".join(issue.get("labels", ["post-refresh", "automated"]))
-          assignee = issue.get("assignee", "KurtAstarita")
-          cmd = [
-              "gh", "issue", "create",
-              "--title", issue["title"],
-              "--body", issue["body"],
-              "--label", labels,
-              "--assignee", assignee,
-              "--repo", "${{ github.repository }}",
-          ]
-          result = subprocess.run(cmd, check=True)
-          sys.exit(result.returncode)
-          PYEOF
+          python scripts/create_github_issue.py refresh_result.json
 
       - name: Print refresh check summary
         if: always()
