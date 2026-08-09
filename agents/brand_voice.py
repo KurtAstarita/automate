@@ -148,6 +148,7 @@ def get_matched_stems(topic: str) -> List[str]:
     return list(seen.keys())
 
 
+def check_banned_phrases(text: str, config: Dict[str, Any]) -> List[str]:
     """Return list of banned phrases found in text."""
     banned = config.get("banned_phrases", [])
     found: List[str] = []
