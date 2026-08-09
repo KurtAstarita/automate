@@ -11,7 +11,7 @@
    * **Overhead & Horizontal Pressing:** Heavy pressing variations for shoulder strength and lockouts.
    * **Pike & Handstand Work:** Vertical pushing, overhead stability, and shoulder girdle health.
 3. **Upper Body Pull:**
-   * **Ring Pull-ups:** Strict control, full range of motion, and false grip work for elbow/forearm tendon strength.
+   * **Suspension Trainer Pull-ups:** Strict control, full range of motion, and false grip work for elbow/forearm tendon strength.
 4. **Grip & Hand Conditioning:**
    * **Rolled Towel Drills:** Isometric holds and crush drills using tightly rolled towels for crushing grip density.
    * **Hard-Surface Tapping:** Controlled fingertip micro-impact work on hard surfaces for connective tissue adaptation and hand toughness.
