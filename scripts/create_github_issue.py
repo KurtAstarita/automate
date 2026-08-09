@@ -26,7 +26,7 @@ def filter_existing_labels(requested_labels: Iterable[str], existing_labels: Ite
 def list_existing_labels(repo: str) -> Set[str]:
     try:
         result = subprocess.run(
-            ["gh", "label", "list", "--limit", "200", "--json", "name", "--repo", repo],
+            ["gh", "label", "list", "--limit", "1000", "--json", "name", "--repo", repo],
             check=True,
             capture_output=True,
             text=True,
@@ -76,8 +76,8 @@ def main(argv: List[str]) -> int:
 
     issue = data["issue_payload"]
     cmd = build_issue_create_command(issue, repo, list_existing_labels(repo))
-    result = subprocess.run(cmd, check=True)
-    return result.returncode
+    subprocess.run(cmd, check=True)
+    return 0
 
 
 if __name__ == "__main__":
