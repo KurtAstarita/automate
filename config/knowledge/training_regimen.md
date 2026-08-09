@@ -1,13 +1,21 @@
-# Kurt's Training Regimen
+# Training Regimen & Physical Conditioning Protocol
 
-> Add your full training program here. This file is loaded selectively
-> only when content topics are training-related, keeping token cost low.
+## Overview & Environment
+* **Philosophy:** Pragmatic strength, body tension, and grip resilience built using minimal, high-yield equipment outside a traditional commercial gym setup.
+* **Focus:** Heavy hinge work, strict calisthenics/gymnastic ring movements, and specialized hand/fingertip conditioning.
 
-## Example Structure
+## Core Movement Pillars
+1. **Lower Body / Hinge:**
+   * **Deadlifts:** Primary heavy hinge driver. Focus on lockout power, bracing, and structured RPE progression.
+2. **Upper Body Push:**
+   * **Overhead & Horizontal Pressing:** Heavy pressing variations for shoulder strength and lockouts.
+   * **Pike & Handstand Work:** Vertical pushing, overhead stability, and shoulder girdle health.
+3. **Upper Body Pull:**
+   * **Ring Pull-ups:** Strict control, full range of motion, and false grip work for elbow/forearm tendon strength.
+4. **Grip & Hand Conditioning:**
+   * **Rolled Towel Drills:** Isometric holds and crush drills using tightly rolled towels for crushing grip density.
+   * **Hard-Surface Tapping:** Controlled fingertip micro-impact work on hard surfaces for connective tissue adaptation and hand toughness.
 
-- **Split:** 5-day upper/lower
-- **Loading:** RPE-based, periodized over 12-week blocks
-- **Primary lifts:** Squat, deadlift, bench press, overhead press
-- **Tracking:** Weekly e1RM logging
-
-Replace this placeholder with your actual regimen.
+## Programming & Load Management
+* **Progression:** RPE auto-regulation blended with multi-week loading blocks.
+* **Execution:** High tension and total movement control over junk volume.
