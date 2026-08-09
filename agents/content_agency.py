@@ -15,6 +15,8 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 
+from agents import brand_voice as bv
+
 
 # Configure logging
 logging.basicConfig(
@@ -650,6 +652,7 @@ class ContentAgency:
         self.name = "Content Agency"
         self.stage = "Stage 2: Creative Writing & Production"
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
+        self._brand_voice = bv.load()
     
     def process_research_brief(
         self,
@@ -671,6 +674,24 @@ class ContentAgency:
             RawCreativeDraft object ready for On-Page SEO Agency
         """
         self.logger.info(f"Processing research brief: {research_brief.get('research_brief_id')}")
+
+        # Load brand voice and build prompt block (token-efficient: ~100-200 tokens)
+        brand_voice_config = self._brand_voice
+        voice_block = bv.build_prompt_block(brand_voice_config)
+        topic = research_brief.get("primary_topic", "")
+        knowledge_chunks = bv.select_knowledge_files(topic)
+
+        # Inject brand voice context into the research brief copy so downstream
+        # drafting helpers can reference it (non-destructive copy)
+        enriched_brief = dict(research_brief)
+        enriched_brief["_brand_voice_block"] = voice_block
+        if knowledge_chunks:
+            enriched_brief["_domain_knowledge"] = "\n\n".join(knowledge_chunks)
+
+        # Override voice/tone from brand voice config when caller left defaults
+        bv_tone_str = brand_voice_config.get("tone", "")
+        if "conversational" in bv_tone_str.lower() and tone == ToneStyle.EDUCATIONAL:
+            tone = ToneStyle.PRAGMATIC
         
         # Configure writing style
         writing_style = WritingStyle(
@@ -685,11 +706,22 @@ class ContentAgency:
             use_data_points=True
         )
         
-        # Initialize drafter
-        drafter = ContentDrafter(writing_style)
-        
-        # Draft full content
-        full_draft = drafter.draft_full_content(research_brief, custom_outline)
+        # Initialize drafter — pass brand voice as voice_guidelines
+        drafter = ContentDrafter(
+            writing_style,
+            voice_guidelines={"brand_voice_block": voice_block},
+        )
+
+        # Draft full content using enriched brief
+        full_draft = drafter.draft_full_content(enriched_brief, custom_outline)
+
+        # Check for banned phrases and log warnings (quality gate)
+        banned_found = bv.check_banned_phrases(full_draft, brand_voice_config)
+        if banned_found:
+            self.logger.warning(
+                "Brand voice: banned phrase(s) detected in draft: %s",
+                banned_found,
+            )
         
         # Calculate readability metrics
         readability = drafter.style_manager.calculate_readability(full_draft)
@@ -743,7 +775,13 @@ class ContentAgency:
             full_draft=full_draft,
             
             # Handoff notes
-            editorial_notes="Draft ready for SEO optimization and technical implementation. No structured data or meta optimization applied.",
+            editorial_notes=(
+                "Draft ready for SEO optimization and technical implementation. "
+                "No structured data or meta optimization applied. "
+                f"Brand voice applied: tone='{brand_voice_config.get('tone', '')}'. "
+                + (f"Banned phrase violations: {banned_found}. " if banned_found else "No banned phrases detected. ")
+                + (f"Domain knowledge loaded: {', '.join(bv.get_matched_stems(topic))}." if knowledge_chunks else "")
+            ),
             revision_suggestions=[
                 "Consider adding 1-2 case studies for enhanced credibility",
                 "Review transition sentences between major sections",

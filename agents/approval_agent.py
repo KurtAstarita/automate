@@ -16,6 +16,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 from agents.ghost_controls import side_effects_allowed
+from agents import brand_voice as bv
 
 
 # Configure logging
@@ -367,33 +368,128 @@ class ApprovalAgent:
         comment_text: str
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Parse GitHub comment for approval commands.
-        
-        Args:
-            comment_text: Raw comment text from GitHub
-            
+        Parse GitHub comment for approval and brand voice commands.
+
+        Supported commands:
+          /approve                       — Publish as-is
+          /publish                       — Alias for approve
+          /revision <notes>              — Send back for revision
+          /reject <reason>               — Reject publication
+          /style <text or example>       — Learn new style rule from text/example
+          /remember <fact>               — Add a domain knowledge fact
+          /ban "<phrase>"                — Add a banned phrase
+          /tone <new tone description>   — Replace the tone string
+          /punch <paragraph>             — Learn from a rewritten paragraph
+
         Returns:
             Tuple of (command: str, argument: str) or (None, None)
         """
         comment_lower = comment_text.lower().strip()
-        
-        # Check for slash commands
+
+        # Approval commands
         if comment_lower.startswith("/approve"):
             return ("approve", None)
         elif comment_lower.startswith("/publish"):
             return ("publish", None)
         elif comment_lower.startswith("/revision"):
-            # Extract revision note
             parts = comment_text.split(" ", 1)
             revision_note = parts[1] if len(parts) > 1 else "Revision requested"
             return ("revision", revision_note)
         elif comment_lower.startswith("/reject"):
-            # Extract rejection reason
             parts = comment_text.split(" ", 1)
             reject_reason = parts[1] if len(parts) > 1 else "Rejected by CEO"
             return ("reject", reject_reason)
-        
+
+        # Brand voice learning commands
+        elif comment_lower.startswith("/style "):
+            parts = comment_text.split(" ", 1)
+            return ("style", parts[1].strip() if len(parts) > 1 else "")
+        elif comment_lower.startswith("/remember "):
+            parts = comment_text.split(" ", 1)
+            return ("remember", parts[1].strip() if len(parts) > 1 else "")
+        elif comment_lower.startswith("/ban "):
+            parts = comment_text.split(" ", 1)
+            return ("ban", parts[1].strip() if len(parts) > 1 else "")
+        elif comment_lower.startswith("/tone "):
+            parts = comment_text.split(" ", 1)
+            return ("tone", parts[1].strip() if len(parts) > 1 else "")
+        elif comment_lower.startswith("/punch "):
+            parts = comment_text.split(" ", 1)
+            return ("punch", parts[1].strip() if len(parts) > 1 else "")
+
         return (None, None)
+
+    def process_brand_voice_command(
+        self,
+        command: str,
+        argument: str,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Process a brand voice learning command and persist the update.
+
+        In dry_run mode the config is not written to disk — safe for
+        ghost/CI runs.
+
+        Returns a dict describing what was done.
+        """
+        result: Dict[str, Any] = {
+            "command": command,
+            "argument": argument[:200] if argument else "",
+            "persisted": False,
+            "rules_added": [],
+        }
+
+        if not argument:
+            result["error"] = "Empty argument — nothing to learn."
+            return result
+
+        if command == "style":
+            # Distill concise rules from potentially long text (one-time cost)
+            rules = bv.distill_style_rules(argument, max_rules=3)
+            for rule in rules:
+                if not dry_run:
+                    bv.append_learned_feedback(rule)
+            result["rules_added"] = rules
+            result["persisted"] = not dry_run
+
+        elif command == "remember":
+            if not dry_run:
+                bv.append_domain_knowledge(argument)
+            result["rules_added"] = [argument]
+            result["persisted"] = not dry_run
+
+        elif command == "ban":
+            if not dry_run:
+                bv.append_banned_phrase(argument)
+            result["rules_added"] = [argument]
+            result["persisted"] = not dry_run
+
+        elif command == "tone":
+            if not dry_run:
+                bv.update_tone(argument)
+            result["rules_added"] = [argument]
+            result["persisted"] = not dry_run
+
+        elif command == "punch":
+            # Learn style from a rewritten paragraph example
+            rules = bv.distill_style_rules(argument, max_rules=2)
+            for rule in rules:
+                if not dry_run:
+                    bv.append_learned_feedback(rule)
+            result["rules_added"] = rules
+            result["persisted"] = not dry_run
+
+        else:
+            result["error"] = f"Unknown brand voice command: {command}"
+
+        if result["persisted"]:
+            self.logger.info(
+                "Brand voice updated via /%s: %s", command, result["rules_added"]
+            )
+
+        return result
+
     
     def process_approval_decision(
         self,
