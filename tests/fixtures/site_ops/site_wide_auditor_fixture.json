@@ -1,0 +1,22 @@
+{
+  "sitemap_urls": [
+    "https://kurtastarita.com/ai-powered-content-automation",
+    "https://kurtastarita.com/python-automation-guide",
+    "https://kurtastarita.com/missing-page"
+  ],
+  "pages": {
+    "https://kurtastarita.com/ai-powered-content-automation": {
+      "status": 200,
+      "html": "<html><body><h1>AI Powered Content Automation</h1><h3>Jumped Heading</h3><img src='/hero.jpg'></body></html>"
+    },
+    "https://kurtastarita.com/python-automation-guide": {
+      "status": 200,
+      "html": "<html><body><h1>Python Automation Guide</h1><h2>Overview</h2><img src='/guide.jpg' alt='Guide image'></body></html>"
+    },
+    "https://kurtastarita.com/missing-page": {
+      "status": 404,
+      "html": "<html><body><h1>Not Found</h1></body></html>"
+    }
+  }
+}
+
