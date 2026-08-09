@@ -1,0 +1,28 @@
+{
+  "sitemap_urls": [
+    "https://kurtastarita.com/ai-powered-content-automation",
+    "https://kurtastarita.com/python-automation-guide",
+    "https://kurtastarita.com/seo-checklist-2024"
+  ],
+  "metadata_by_url": {
+    "https://kurtastarita.com/ai-powered-content-automation": {
+      "title": "AI Powered Content Automation",
+      "primary_keywords": ["ai", "content", "automation", "workflow"]
+    },
+    "https://kurtastarita.com/python-automation-guide": {
+      "title": "Python Automation Guide",
+      "primary_keywords": ["python", "automation", "guide"]
+    },
+    "https://kurtastarita.com/seo-checklist-2024": {
+      "title": "SEO Checklist 2024",
+      "primary_keywords": ["seo", "checklist", "technical"]
+    }
+  },
+  "draft_text": "This guide explains ai workflow automation and technical seo improvements.",
+  "expected_targets": [
+    ["automation", "https://kurtastarita.com/ai-powered-content-automation"],
+    ["seo", "https://kurtastarita.com/seo-checklist-2024"],
+    ["automation", "https://kurtastarita.com/python-automation-guide"]
+  ]
+}
+

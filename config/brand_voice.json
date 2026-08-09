@@ -1,0 +1,17 @@
+{
+  "author": "Kurt",
+  "tone": "Direct, conversational, engineering-focused, authoritative, zero fluff",
+  "formatting_rules": [
+    "Lead directly with core insights or solutions without generic setups",
+    "Use practical examples and concrete technical details",
+    "Maintain short, punchy paragraphs and scannable sections"
+  ],
+  "banned_phrases": [
+    "In today's fast-paced digital world",
+    "game-changer",
+    "delve into",
+    "seamlessly integrate"
+  ],
+  "domain_knowledge": [],
+  "learned_style_feedback": []
+}

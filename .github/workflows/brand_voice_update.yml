@@ -1,0 +1,98 @@
+name: Brand Voice Update
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  brand-voice-update:
+    # Only process comments on issues (not PRs) that start with a brand voice command
+    if: |
+      github.event.issue.pull_request == null &&
+      (
+        startsWith(github.event.comment.body, '/style ') ||
+        startsWith(github.event.comment.body, '/remember ') ||
+        startsWith(github.event.comment.body, '/ban ') ||
+        startsWith(github.event.comment.body, '/tone ') ||
+        startsWith(github.event.comment.body, '/punch ')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Process brand voice command
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          AUTHORIZED_USERS: "KurtAstarita"
+          GHOST_MODE: "false"
+          DRY_RUN: "false"
+          ALLOW_SIDE_EFFECTS: "true"
+        run: |
+          python - <<'EOF'
+          import os, sys
+          sys.path.insert(0, ".")
+          from agents.approval_agent import ApprovalAgent
+
+          comment = os.environ["COMMENT_BODY"]
+          author = os.environ["COMMENT_AUTHOR"]
+          authorized = [u.strip() for u in os.environ.get("AUTHORIZED_USERS", "").split(",") if u.strip()]
+
+          if author not in authorized:
+              print(f"User '{author}' is not authorized to update brand voice. Skipping.")
+              sys.exit(0)
+
+          agent = ApprovalAgent()
+          command, argument = agent.parse_approval_comment(comment)
+
+          if command in ("style", "remember", "ban", "tone", "punch"):
+              result = agent.process_brand_voice_command(command, argument, dry_run=False)
+              print(f"Brand voice command processed: /{command}")
+              print(f"Rules added: {result.get('rules_added', [])}")
+              print(f"Persisted: {result.get('persisted', False)}")
+              if result.get("error"):
+                  print(f"Error: {result['error']}", file=sys.stderr)
+                  sys.exit(1)
+          else:
+              print("No brand voice command found — skipping.")
+          EOF
+
+      - name: Commit updated brand voice config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/brand_voice.json config/knowledge/
+          if git diff --cached --quiet; then
+            echo "No brand voice changes to commit."
+          else
+            git commit -m "chore: update brand voice from issue comment [skip ci]"
+            git push
+          fi
+
+      - name: React to comment (acknowledge)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: '+1'
+            });

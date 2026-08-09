@@ -17,9 +17,11 @@ if str(REPO_ROOT) not in sys.path:
 from agents.approval_agent import ApprovalAgent
 from agents.boss_agent import BossAgent, ContentType, TargetAudience
 from agents.content_agency import ContentAgency
+from agents.content_refresh_agent import ContentRefreshAgent
 from agents.ghost_controls import ghost_controls
 from agents.onpage_seo_agency import OnPageSEOAgency
 from agents.site_intelligence_agent import OverseerRefreshValidator, SiteIntelligenceAgent
+from agents.site_wide_auditor_agent import SiteWideAuditorAgent
 from agents.the_overseer import TheOverseer
 from scripts.ghost_contracts import (
     CONTRACT_VERSION,
@@ -352,6 +354,41 @@ def _run_site_intel(scenario: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         },
         _elapsed_ms(start_time),
     )
+
+
+def _run_site_ops() -> Dict[str, Any]:
+    """Run SiteWideAuditorAgent and ContentRefreshAgent in ghost mode.
+
+    Both agents are wired as optional: errors are captured rather than
+    propagated so they cannot fail the main harness run.
+    """
+    result: Dict[str, Any] = {}
+
+    try:
+        auditor = SiteWideAuditorAgent()
+        audit_report = auditor.audit_site()
+        result["site_wide_audit"] = {
+            "health_score": audit_report.health_score,
+            "broken_links": audit_report.broken_links,
+            "missing_alt_urls": audit_report.missing_alt_urls,
+            "structural_warnings": audit_report.structural_warnings,
+            "error": None,
+        }
+    except Exception as exc:
+        result["site_wide_audit"] = {"error": str(exc)}
+
+    try:
+        refresh_agent = ContentRefreshAgent()
+        index = refresh_agent.build_sitemap_index()
+        result["content_refresh"] = {
+            "entry_count": len(index),
+            "entries": index,
+            "error": None,
+        }
+    except Exception as exc:
+        result["content_refresh"] = {"error": str(exc)}
+
+    return result
 
 
 def _run_pipeline(scenario: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, int], List[str]]:
@@ -804,6 +841,7 @@ def main() -> int:
 
         scenario = _normalize_scenario(json.loads(fixture_path.read_text(encoding="utf-8")))
         site_intel, site_intel_runtime_ms = _run_site_intel(scenario)
+        site_ops = _run_site_ops()
         pipeline, pipeline_stage_timings, fallback_stages = _run_pipeline(scenario)
         checks = _validate_contracts(site_intel, pipeline)
 
@@ -928,6 +966,7 @@ def main() -> int:
 
         _write_json(output_root / "pipeline_result.json", pipeline)
         _write_json(output_root / "site_intel_diagnostics.json", site_intel["diagnostics"])
+        _write_json(output_root / "site_ops_result.json", site_ops)
         _write_json(output_root / "ghost_run_report.json", report)
         _write_json(output_root / "golden_snapshot.json", snapshot)
         _write_json(output_root / "golden_diff_report.json", golden_diff_report)

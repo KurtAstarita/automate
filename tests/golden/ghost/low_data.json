@@ -33,7 +33,7 @@
     },
     "content_agency": {
       "voice_used": "authoritative",
-      "tone_used": "educational",
+      "tone_used": "pragmatic",
       "section_count": 8,
       "handoff_status": "RAW_CREATIVE_DRAFT_COMPLETE"
     },
@@ -101,7 +101,7 @@
         "pass_rate": 1.0,
         "fallback_rate": 0.0,
         "retry_rate": 0.0,
-        "avg_runtime_ms": 1,
+        "avg_runtime_ms": 2,
         "missing_required_field_rate": 0.0,
         "checks_passed": 7,
         "checks_total": 7,
