@@ -358,7 +358,7 @@ class SiteIntelligenceAgent:
 - **URL:** `/{post.url_slug}`
 - **Title:** {post.title}
 - **Published:** {post.published_date} ({post.days_old} days ago)
-- **Google Position:** #{post.current_position}
+- **Google Position:** {post.current_position}
 - **Impressions:** {post.impressions:,}
 - **Clicks:** {post.clicks}
 - **Current CTR:** {post.ctr}%
