@@ -20,7 +20,7 @@ from agents.content_agency import ContentAgency
 from agents.content_refresh_agent import ContentRefreshAgent
 from agents.ghost_controls import ghost_controls
 from agents.onpage_seo_agency import OnPageSEOAgency
-from agents.site_intelligence_agent import OverseerRefreshValidator, SiteIntelligenceAgent
+from agents.site_intelligence_agent import OverseerRefreshValidator, PostCandidate, SiteIntelligenceAgent
 from agents.site_wide_auditor_agent import SiteWideAuditorAgent
 from agents.the_overseer import TheOverseer
 from scripts.ghost_contracts import (
@@ -316,19 +316,18 @@ def _run_site_intel(scenario: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         candidate = agent.select_weekly_candidate(gsc_data, ga4_metrics)
     except ValueError:
         no_candidate_fallback_used = True
-        candidate = agent.select_weekly_candidate(
-            [
-                {
-                    "post_id": "sample_post",
-                    "url_slug": "sample-post",
-                    "title": "Sample Post for Refresh",
-                    "published_date": "2024-01-01",
-                    "position": 8,
-                    "impressions": 3000,
-                    "clicks": 45,
-                }
-            ],
-            None,
+        candidate = PostCandidate(
+            post_id="ghost_fallback_001",
+            url_slug="sample-post",
+            title="Sample Post for Refresh",
+            published_date="2024-01-01",
+            current_position=8,
+            impressions=3000,
+            clicks=45,
+            ctr=1.5,
+            days_old=0,
+            reason_for_refresh="Position 8, 3000 impressions, 1.5% CTR",
+            potential_ctr_boost="15-25%",
         )
     checklist = agent.create_refresh_checklist(candidate)
     brief = agent.create_overseer_brief(candidate, checklist)
