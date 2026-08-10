@@ -311,7 +311,25 @@ def _run_site_intel(scenario: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     agent = SiteIntelligenceAgent()
     overseer = OverseerRefreshValidator()
 
-    candidate = agent.select_weekly_candidate(gsc_data, ga4_metrics)
+    no_candidate_fallback_used = False
+    try:
+        candidate = agent.select_weekly_candidate(gsc_data, ga4_metrics)
+    except ValueError:
+        no_candidate_fallback_used = True
+        candidate = agent.select_weekly_candidate(
+            [
+                {
+                    "post_id": "sample_post",
+                    "url_slug": "sample-post",
+                    "title": "Sample Post for Refresh",
+                    "published_date": "2024-01-01",
+                    "position": 8,
+                    "impressions": 3000,
+                    "clicks": 45,
+                }
+            ],
+            None,
+        )
     checklist = agent.create_refresh_checklist(candidate)
     brief = agent.create_overseer_brief(candidate, checklist)
     validation = overseer.validate_refresh_brief(brief)
@@ -326,7 +344,7 @@ def _run_site_intel(scenario: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         error_reasons.append("No valid GSC rows available; site intelligence will use its mock candidate fallback.")
     error_reasons = _dedupe_messages(error_reasons)
 
-    fallback_used = bool(simulate_api_failure or not ga4_metrics or not gsc_data)
+    fallback_used = bool(simulate_api_failure or not ga4_metrics or not gsc_data or no_candidate_fallback_used)
     diagnostics = _versioned_payload(
         {
             "mode": "ghost",
