@@ -6,9 +6,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-
 from agents.ghost_controls import side_effects_allowed
 
 
@@ -115,6 +112,9 @@ class BloggerPublisher:
 
     @staticmethod
     def _build_service() -> Any:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+
         creds = Credentials(
             token=None,
             refresh_token=os.environ["BLOGGER_REFRESH_TOKEN"],

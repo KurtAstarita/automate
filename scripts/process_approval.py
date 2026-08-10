@@ -86,8 +86,9 @@ def main() -> int:
         publish_result = publisher.publish_content(payload)
         result["publish_result"] = publish_result
         result["published"] = publish_result.get("status") == "published"
+        action_text = "Published" if result["published"] else "Prepared"
         result["message"] = (
-            f"Published '{publish_result.get('title', payload.get('title', 'content'))}' "
+            f"{action_text} '{publish_result.get('title', payload.get('title', 'content'))}' "
             f"via {packet.get('packet_type', 'unknown')} flow."
         )
 
