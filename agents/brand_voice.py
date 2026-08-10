@@ -36,19 +36,38 @@ _DEFAULTS: Dict[str, Any] = {
     "learned_style_feedback": [],
 }
 
-# Map topic keywords → knowledge file stems (stem must match config/knowledge/<stem>.md)
+# Map topic keywords → knowledge file stems (stem must match config/knowledge/<stem>.md).
+# Any .md file added to config/knowledge/ is also auto-discovered: its stem words
+# (split on underscores) are used as implicit keywords so no manual entry is needed.
 _TOPIC_KEYWORD_MAP: Dict[str, str] = {
+    # training_regimen.md
     "training": "training_regimen",
     "workout": "training_regimen",
     "lift": "training_regimen",
     "strength": "training_regimen",
+    "exercise": "training_regimen",
+    # nutrition_protocol.md
     "nutrition": "nutrition_protocol",
     "diet": "nutrition_protocol",
     "macro": "nutrition_protocol",
     "protein": "nutrition_protocol",
+    "calorie": "nutrition_protocol",
+    # tech_stack.md
+    "tech": "tech_stack",
+    "software": "tech_stack",
+    "code": "tech_stack",
+    "developer": "tech_stack",
+    "automation": "tech_stack",
+    "api": "tech_stack",
+    "github": "tech_stack",
+    "saas": "tech_stack",
+    "engineering": "tech_stack",
+    # business_philosophy.md
     "business": "business_philosophy",
     "entrepreneur": "business_philosophy",
     "startup": "business_philosophy",
+    "founder": "business_philosophy",
+    "strategy": "business_philosophy",
 }
 
 
@@ -119,16 +138,42 @@ def load_knowledge_file(stem: str) -> str:
     return ""
 
 
+def _build_auto_keyword_map() -> Dict[str, str]:
+    """
+    Scan config/knowledge/ and build an implicit keyword map from filenames.
+
+    Each .md stem is split on underscores; every word becomes a keyword that
+    maps back to that stem.  Example: ``supplement_stack.md`` → keywords
+    "supplement" and "stack" both map to "supplement_stack".
+
+    Explicit entries in _TOPIC_KEYWORD_MAP always win (they are merged last).
+    """
+    auto: Dict[str, str] = {}
+    if KNOWLEDGE_DIR.is_dir():
+        for md_file in KNOWLEDGE_DIR.glob("*.md"):
+            stem = md_file.stem
+            for word in stem.split("_"):
+                if word and word not in auto:
+                    auto[word] = stem
+    # Explicit map overrides auto-derived entries
+    auto.update(_TOPIC_KEYWORD_MAP)
+    return auto
+
+
 def select_knowledge_files(topic: str) -> List[str]:
     """
     Return content of knowledge files relevant to the given topic string.
-    Only loads files that match — keeps token cost near zero for unrelated topics.
+
+    Checks both the explicit _TOPIC_KEYWORD_MAP and any .md file present in
+    config/knowledge/ (auto-discovered via filename keywords).  Only loads
+    files that match — keeps token cost near zero for unrelated topics.
     """
+    combined_map = _build_auto_keyword_map()
     topic_lower = topic.lower()
     seen_stems: set = set()
     chunks: List[str] = []
 
-    for keyword, stem in _TOPIC_KEYWORD_MAP.items():
+    for keyword, stem in combined_map.items():
         if keyword in topic_lower and stem not in seen_stems:
             seen_stems.add(stem)
             text = load_knowledge_file(stem)
@@ -140,9 +185,10 @@ def select_knowledge_files(topic: str) -> List[str]:
 
 def get_matched_stems(topic: str) -> List[str]:
     """Return deduplicated knowledge-file stems that match the given topic string."""
+    combined_map = _build_auto_keyword_map()
     topic_lower = topic.lower()
     seen: dict = {}
-    for keyword, stem in _TOPIC_KEYWORD_MAP.items():
+    for keyword, stem in combined_map.items():
         if keyword in topic_lower and stem not in seen:
             seen[stem] = True
     return list(seen.keys())
