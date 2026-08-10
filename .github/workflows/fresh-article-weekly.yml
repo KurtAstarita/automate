@@ -40,7 +40,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EDITORIAL_SEED_TOPICS: ${{ inputs.editorial_seed_topics || vars.EDITORIAL_SEED_TOPICS || 'content automation,seo automation,ai workflows,developer productivity' }}
           EDITORIAL_INDUSTRY: ${{ inputs.editorial_industry || vars.EDITORIAL_INDUSTRY || 'B2B SaaS' }}
-          SITEMAP_URL: "https://kurtasterita.com/sitemap.xml"
+          SITEMAP_URL: "https://kurtastarita.com/sitemap.xml"
         run: python scripts/run_weekly_fresh_article.py
 
       - name: Create GitHub approval issue

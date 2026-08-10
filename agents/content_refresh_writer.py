@@ -14,6 +14,7 @@ import logging
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from html import unescape
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -27,6 +28,38 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+class _ReadableTextExtractor(HTMLParser):
+    BLOCK_TAGS = {
+        "article", "aside", "blockquote", "br", "div", "figcaption", "figure",
+        "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "li", "main",
+        "ol", "p", "section", "table", "tr", "ul",
+    }
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: List[str] = []
+
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, str | None]]) -> None:
+        if tag.lower() in self.BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in self.BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if data:
+            self.parts.append(data)
+
+    def get_text(self) -> str:
+        text = "".join(self.parts)
+        text = unescape(text)
+        text = re.sub(r"\r", "", text)
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
 
 
 @dataclass
@@ -76,6 +109,7 @@ class ContentRefreshWriter:
         internal_link_targets: Sequence[Tuple[str, str]] | None = None,
         base_url: str = "https://kurtastarita.com",
     ) -> RefreshedPostPackage:
+        now = datetime.now(timezone.utc)
         slug = str(post_candidate.get("url_slug") or "").strip()
         title = str(post_candidate.get("title") or "Untitled").strip()
         original_url = f"{base_url.rstrip('/')}/{slug}"
@@ -97,11 +131,11 @@ class ContentRefreshWriter:
         )
 
         return RefreshedPostPackage(
-            refresh_id=f"REFRESH_CONTENT_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            refresh_id=f"REFRESH_CONTENT_{now.strftime('%Y%m%d_%H%M%S')}",
             title=title,
             url_slug=slug,
             original_url=original_url,
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=now.isoformat(),
             summary=summary,
             html=refreshed_html,
             labels=["refresh", "automated", "seo-update"],
@@ -181,12 +215,11 @@ class ContentRefreshWriter:
 
     @staticmethod
     def _extract_readable_text(html: str) -> str:
-        text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.IGNORECASE | re.DOTALL)
-        text = re.sub(r"<[^>]+>", "\n", text)
-        text = unescape(text)
-        text = re.sub(r"\r", "", text)
-        text = re.sub(r"\n{3,}", "\n\n", text)
-        return text.strip()
+        html = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+        parser = _ReadableTextExtractor()
+        parser.feed(html)
+        parser.close()
+        return parser.get_text()
 
     @staticmethod
     def _escape_html(value: str) -> str:

@@ -31,10 +31,20 @@ class BloggerPublisher:
                 "url_slug": package.get("url_slug"),
             }
 
-        service = self._build_service()
-        if operation == "refresh":
-            return self._refresh_existing_post(service, package)
-        return self._create_post(service, package)
+        try:
+            service = self._build_service()
+            if operation == "refresh":
+                return self._refresh_existing_post(service, package)
+            return self._create_post(service, package)
+        except Exception as exc:
+            self.logger.error("Blogger publish failed: %s", exc)
+            return {
+                "status": "error",
+                "operation": operation,
+                "message": str(exc),
+                "title": package.get("title"),
+                "url_slug": package.get("url_slug"),
+            }
 
     def _create_post(self, service: Any, package: Dict[str, Any]) -> Dict[str, Any]:
         blog_id = os.environ["BLOG_ID"]
@@ -93,7 +103,7 @@ class BloggerPublisher:
                 blogId=blog_id,
                 fetchBodies=False,
                 maxResults=100,
-                status=["LIVE"],
+                status="LIVE",
                 pageToken=page_token,
             ).execute()
             for item in response.get("items", []):

@@ -68,7 +68,7 @@ def main() -> int:
         "diagnostics": {
             "mode": "gsc_ga4" if not ga4_error else "gsc_only_fallback",
             "ga4_error": ga4_error,
-            "ga4_slugs_matched": len(ga4_metrics),
+            "ga4_slugs_matched": len(ga4_metrics) if ga4_metrics else 0,
         },
     }
 

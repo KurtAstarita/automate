@@ -524,7 +524,7 @@ class BossAgent:
                     competitor_name=source_name,
                     content_focus=insight.title,
                     key_differentiators=insight.keywords[:3] or [topic, "timely coverage"],
-                    audience_overlap=0.75 if any("developer" in a for a in target_audience) else 0.6,
+                    audience_overlap=0.75 if any("developer" in str(a).lower() for a in target_audience) else 0.6,
                     strength_areas=["Timely research coverage", "Search visibility"],
                     weakness_areas=["Limited brand voice differentiation", "Unknown implementation depth"],
                 )

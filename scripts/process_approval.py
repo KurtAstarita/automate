@@ -30,7 +30,7 @@ def main() -> int:
         "issue_title": issue_title,
     }
 
-    if authorized_users and comment_author not in authorized_users:
+    if not authorized_users or comment_author not in authorized_users:
         result["message"] = f"User '{comment_author}' is not authorized to publish content."
         _write_result(result)
         return 0

@@ -9,7 +9,7 @@ from googleapiclient.discovery import build
 # Environment Variables
 GOOGLE_CREDS_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY")
-SITE_HOST = os.environ.get("SITE_HOST") # e.g., "kurtasterita.com"
+SITE_HOST = os.environ.get("SITE_HOST") # e.g., "kurtastarita.com"
 RSS_FEED_URL = os.environ.get("RSS_FEED_URL")
 
 def get_latest_urls(count=5):
