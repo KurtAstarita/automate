@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -123,8 +124,13 @@ def main() -> int:
         logger.warning("GSC fetch failed (%s). Writing empty output.", error)
         rows = []
 
-    with open("gsc_data.json", "w", encoding="utf-8") as f:
-        json.dump(rows, f, indent=2)
+    output_path = "gsc_data.json"
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
+    ) as tmp:
+        json.dump(rows, tmp, indent=2)
+        tmp_name = tmp.name
+    os.replace(tmp_name, output_path)
 
     logger.info("Wrote %d rows to gsc_data.json", len(rows))
     return 0 if rows else 1

@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, ".")
 
@@ -97,7 +98,6 @@ def main() -> int:
 
 
 def _write_result(result: dict) -> None:
-    import tempfile
     output_path = "approval_result.json"
     with tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
