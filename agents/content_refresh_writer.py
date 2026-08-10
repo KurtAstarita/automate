@@ -220,8 +220,11 @@ class ContentRefreshWriter:
             for anchor, url in links
         ) or "<li>No related internal links were identified for this update.</li>"
 
+        voice_lines = voice_block.splitlines() if voice_block else []
+        voice_summary = voice_lines[1] if len(voice_lines) > 1 else ""
+
         body_parts = [
-            f"<!-- Brand voice: {self._escape_html(voice_block.splitlines()[1] if voice_block else '')} -->",
+            f"<!-- Brand voice: {self._escape_html(voice_summary)} -->",
             f"<h1>{self._escape_html(title)}</h1>",
             "<p><em>Updated for freshness with current research, clearer recommendations, and stronger internal linking.</em></p>",
             *[f"<p>{self._escape_html(paragraph)}</p>" for paragraph in intro],

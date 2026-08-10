@@ -1,7 +1,7 @@
 import unittest
 
 from agents.issue_packets import embed_packet, extract_packet
-from agents.approval_agent import GitHubApprovalIssueBuilder
+from agents.approval_agent import ApprovalAgent, GitHubApprovalIssueBuilder
 from agents.site_intelligence_agent import PostCandidate, RefreshBrief, RefreshChecklist, SiteIntelligenceAgent
 
 
@@ -106,6 +106,21 @@ class IssuePacketTests(unittest.TestCase):
         self.assertEqual(packet["packet_type"], "refresh_article")
         self.assertEqual(packet["payload"]["operation"], "refresh")
         self.assertEqual(packet["payload"]["url_slug"], "existing-post")
+
+    def test_parse_approval_comment_requires_exact_command_token(self):
+        agent = ApprovalAgent()
+
+        command, argument = agent.parse_approval_comment("/approve-now")
+        self.assertEqual((command, argument), (None, None))
+
+        command, argument = agent.parse_approval_comment("/approve looks good")
+        self.assertEqual((command, argument), ("approve", None))
+
+        command, argument = agent.parse_approval_comment("/revision needs more detail")
+        self.assertEqual((command, argument), ("revision", "needs more detail"))
+
+        command, argument = agent.parse_approval_comment("/reject not aligned")
+        self.assertEqual((command, argument), ("reject", "not aligned"))
 
 
 if __name__ == "__main__":

@@ -53,7 +53,10 @@ if not posts:
 posts_sorted = sorted(posts, key=lambda x: x.get('published', ''))
 oldest_post = posts_sorted[0]
 
-print(f"Selected oldest post: '{oldest_post['title']}' (Originally Published: {oldest_post['published']})")
+print(
+    f"Selected oldest post: '{oldest_post.get('title', 'Untitled')}' "
+    f"(Originally Published: {oldest_post.get('published', 'unknown')})"
+)
 
 # Update publication date to right now (ISO 8601 UTC format)
 now_iso = datetime.now(timezone.utc).isoformat()

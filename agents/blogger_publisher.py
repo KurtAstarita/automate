@@ -114,7 +114,7 @@ class BloggerPublisher:
                 blogId=blog_id,
                 fetchBodies=False,
                 maxResults=100,
-                status="LIVE",
+                status=["LIVE"],
                 pageToken=page_token,
             ).execute()
             for item in response.get("items", []):
