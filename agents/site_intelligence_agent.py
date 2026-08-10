@@ -76,7 +76,7 @@ class RefreshChecklist:
     """Simple approval checklist for post refresh."""
     post_id: str
     url_slug: str
-    checks: Dict[str, bool] = None
+    checks: Optional[Dict[str, bool]] = None
     
     def __post_init__(self):
         if self.checks is None:

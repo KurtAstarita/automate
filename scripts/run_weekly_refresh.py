@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from dataclasses import asdict
 
 sys.path.insert(0, ".")
@@ -91,8 +92,13 @@ def main() -> int:
         },
     }
 
-    with open("refresh_result.json", "w", encoding="utf-8") as handle:
-        json.dump(result, handle, indent=2)
+    output_path = "refresh_result.json"
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
+    ) as tmp:
+        json.dump(result, tmp, indent=2)
+        tmp_name = tmp.name
+    os.replace(tmp_name, output_path)
     LOG.info("Refresh package prepared: %s", brief.brief_id)
     return 0
 

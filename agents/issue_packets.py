@@ -5,8 +5,7 @@ from typing import Any, Dict, Optional
 
 
 PACKET_PATTERN = re.compile(
-    r"<!--\s*AUTOMATE_PACKET:(?P<encoded>[^>]+):AUTOMATE_PACKET\s*-->",
-    re.DOTALL,
+    r"<!--\s*AUTOMATE_PACKET:(?P<encoded>[A-Za-z0-9\-_=]+):AUTOMATE_PACKET\s*-->",
 )
 
 

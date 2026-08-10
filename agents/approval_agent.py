@@ -166,7 +166,7 @@ class GitHubApprovalIssueBuilder:
 | **SEO Score** | {critical_metrics.get('seo_score', 'N/A')}/100 | {'✅ OPTIMIZED' if critical_metrics.get('seo_score', 0) >= 75 else '⚠️ REVIEW'} |
 | **Risk Level** | **{critical_metrics.get('risk_level', 'unknown').upper()}** | {'🟢 LOW' if critical_metrics.get('risk_level') == 'low' else '🟡 MEDIUM' if critical_metrics.get('risk_level') == 'medium' else '🔴 HIGH'} |
 | **Production Ready** | {'✅ YES' if production_ready else '❌ NO'} | {'🚀 READY' if production_ready else '⏸️ REVIEW NEEDED'} |
-| **Word Count** | {critical_metrics.get('word_count', 'N/A'):,} words | - |
+| **Word Count** | {critical_metrics.get('word_count', 'N/A')} words | - |
 | **Reading Time** | {critical_metrics.get('reading_time', 'N/A')} min | - |
 
 ---
