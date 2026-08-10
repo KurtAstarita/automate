@@ -32,7 +32,7 @@ def main() -> int:
     seo = OnPageSEOAgency()
     overseer = TheOverseer()
     approval = ApprovalAgent()
-    refresh = ContentRefreshAgent()
+    refresh_agent = ContentRefreshAgent()
 
     industry = os.environ.get("EDITORIAL_INDUSTRY", "General").strip() or "General"
     topic_pick = boss.discover_weekly_topic(seed_topics=_seed_topics(), industry=industry)
@@ -51,10 +51,10 @@ def main() -> int:
     research_brief["primary_topic"] = directive.target_focus
 
     raw_draft = content.process_research_brief(research_brief)
-    index_entries = refresh.build_sitemap_index(
+    index_entries = refresh_agent.build_sitemap_index(
         sitemap_source=os.environ.get("SITEMAP_URL", "https://kurtastarita.com/sitemap.xml")
     )
-    related = refresh.get_internal_link_targets(raw_draft.full_draft, index_entries=index_entries)
+    related = refresh_agent.get_internal_link_targets(raw_draft.full_draft, index_entries=index_entries)
     optimized = seo.process_raw_creative_draft(asdict(raw_draft), directive.primary_keywords, related_content_urls=related)
     briefing = overseer.process_pipeline_output(research_brief, asdict(raw_draft), asdict(optimized))
     issue_payload = asdict(approval.create_approval_issue(asdict(briefing)))

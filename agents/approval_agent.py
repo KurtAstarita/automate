@@ -145,6 +145,8 @@ class GitHubApprovalIssueBuilder:
         compliance = briefing.get("compliance_checks", {})
         risks = briefing.get("risks_identified", [])
         production_ready = briefing.get("production_ready", False)
+        word_count = critical_metrics.get("word_count", "N/A")
+        formatted_word_count = f"{word_count:,}" if isinstance(word_count, int) else str(word_count)
         
         body = f"""# Content Approval Request: {briefing.get('content_title', 'Untitled')}
 
@@ -166,7 +168,7 @@ class GitHubApprovalIssueBuilder:
 | **SEO Score** | {critical_metrics.get('seo_score', 'N/A')}/100 | {'✅ OPTIMIZED' if critical_metrics.get('seo_score', 0) >= 75 else '⚠️ REVIEW'} |
 | **Risk Level** | **{critical_metrics.get('risk_level', 'unknown').upper()}** | {'🟢 LOW' if critical_metrics.get('risk_level') == 'low' else '🟡 MEDIUM' if critical_metrics.get('risk_level') == 'medium' else '🔴 HIGH'} |
 | **Production Ready** | {'✅ YES' if production_ready else '❌ NO'} | {'🚀 READY' if production_ready else '⏸️ REVIEW NEEDED'} |
-| **Word Count** | {critical_metrics.get('word_count', 'N/A')} words | - |
+| **Word Count** | {formatted_word_count} words | - |
 | **Reading Time** | {critical_metrics.get('reading_time', 'N/A')} min | - |
 
 ---

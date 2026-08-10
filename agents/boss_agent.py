@@ -151,8 +151,8 @@ class BossAgent:
             if PUBLISHED_TOPICS_PATH.exists():
                 data = json.loads(PUBLISHED_TOPICS_PATH.read_text(encoding="utf-8"))
                 return [str(t).lower().strip() for t in data if t]
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError) as exc:
+            self.logger.warning("Could not read published_topics.json: %s", exc)
         return []
 
     def _record_published_topic(self, headline: str) -> None:
