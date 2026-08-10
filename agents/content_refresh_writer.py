@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import requests
 
 from agents.ghost_controls import ghost_controls
+from agents import brand_voice as bv
 
 
 logging.basicConfig(
@@ -116,6 +117,13 @@ class ContentRefreshWriter:
         original_html = self.fetch_existing_post_html(original_url)
         original_text = self._extract_readable_text(original_html)
 
+        voice_config = bv.load()
+        voice_block = bv.build_prompt_block(voice_config)
+        knowledge_chunks = bv.select_knowledge_files(title)
+        banned_found = bv.check_banned_phrases(original_text, voice_config)
+        if banned_found:
+            logger.warning("Banned phrases found in original post '%s': %s", title, banned_found)
+
         insights = [dict(item) for item in (market_insights or [])[:3]]
         links = list(internal_link_targets or [])[:3]
         summary = (
@@ -128,7 +136,23 @@ class ContentRefreshWriter:
             original_text=original_text,
             insights=insights,
             links=links,
+            voice_block=voice_block,
+            knowledge_chunks=knowledge_chunks,
+            banned_phrases=voice_config.get("banned_phrases", []),
         )
+
+        change_log = [
+            "Added freshness update section",
+            "Added current research highlights",
+            "Added related internal links",
+            "Prepared content for republish with updated date",
+            f"Brand voice enforced: tone='{voice_config.get('tone', '')}'",
+        ]
+        if knowledge_chunks:
+            matched = bv.get_matched_stems(title)
+            change_log.append(f"Domain knowledge applied: {', '.join(matched)}")
+        if banned_found:
+            change_log.append(f"Banned phrases flagged for removal: {banned_found}")
 
         return RefreshedPostPackage(
             refresh_id=f"REFRESH_CONTENT_{now.strftime('%Y%m%d_%H%M%S')}",
@@ -151,12 +175,7 @@ class ContentRefreshWriter:
                 {"anchor_text": anchor, "target_url": url}
                 for anchor, url in links
             ],
-            change_log=[
-                "Added freshness update section",
-                "Added current research highlights",
-                "Added related internal links",
-                "Prepared content for republish with updated date",
-            ],
+            change_log=change_log,
         )
 
     def _build_refreshed_html(
@@ -165,8 +184,16 @@ class ContentRefreshWriter:
         original_text: str,
         insights: Sequence[Dict[str, Any]],
         links: Sequence[Tuple[str, str]],
+        voice_block: str = "",
+        knowledge_chunks: Sequence[str] | None = None,
+        banned_phrases: Sequence[str] | None = None,
     ) -> str:
-        paragraphs = [p.strip() for p in re.split(r"\n{2,}", original_text) if p.strip()]
+        # Strip banned phrases from the source text before rendering
+        cleaned_text = original_text
+        for phrase in (banned_phrases or []):
+            cleaned_text = re.sub(re.escape(phrase), "", cleaned_text, flags=re.IGNORECASE)
+
+        paragraphs = [p.strip() for p in re.split(r"\n{2,}", cleaned_text) if p.strip()]
         if not paragraphs:
             paragraphs = [f"{title} remains relevant, but this update sharpens the advice and examples."]
 
@@ -186,6 +213,7 @@ class ContentRefreshWriter:
         ) or "<li>No related internal links were identified for this update.</li>"
 
         body_parts = [
+            f"<!-- Brand voice: {self._escape_html(voice_block.splitlines()[1] if voice_block else '')} -->",
             f"<h1>{self._escape_html(title)}</h1>",
             "<p><em>Updated for freshness with current research, clearer recommendations, and stronger internal linking.</em></p>",
             *[f"<p>{self._escape_html(paragraph)}</p>" for paragraph in intro],

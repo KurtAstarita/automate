@@ -56,11 +56,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Fetch live GSC data
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GSC_SITE_URL: "https://kurtastarita.com/"
+          GSC_LOOKBACK_DAYS: "28"
+        run: python scripts/gsc_fetcher.py || echo "GSC fetch failed — will fall back to GSC_DATA_JSON secret or sample data"
+
       - name: Run Site Intelligence Agent
         id: sia
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Allow callers to supply GSC data via secret or workflow input
+          # Fallback: allow callers to supply GSC data via secret or workflow input
           GSC_DATA_JSON: ${{ inputs.gsc_data_json || secrets.GSC_DATA_JSON || '' }}
           # GA4 configuration – reuse existing service account credential
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}

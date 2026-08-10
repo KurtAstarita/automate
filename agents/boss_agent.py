@@ -12,6 +12,7 @@ Handoff Output: CONTENT_DIRECTIVE_BRIEF sent to the Content Agency.
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -21,6 +22,9 @@ import feedparser
 import requests
 
 from agents.ghost_controls import ghost_controls
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PUBLISHED_TOPICS_PATH = REPO_ROOT / "published_topics.json"
 
 
 # Configure logging
@@ -138,6 +142,45 @@ class BossAgent:
         self.name = "Boss Agent"
         self.stage = "Stage 1: Ideation & Research"
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
+
+    # ── Topic deduplication helpers ───────────────────────────────────────────
+
+    def _load_published_topics(self) -> List[str]:
+        """Return list of previously published topic headlines (lowercase)."""
+        try:
+            if PUBLISHED_TOPICS_PATH.exists():
+                data = json.loads(PUBLISHED_TOPICS_PATH.read_text(encoding="utf-8"))
+                return [str(t).lower().strip() for t in data if t]
+        except Exception:
+            pass
+        return []
+
+    def _record_published_topic(self, headline: str) -> None:
+        """Append a headline to the published topics log and persist."""
+        try:
+            topics = self._load_published_topics()
+            entry = headline.lower().strip()
+            if entry and entry not in topics:
+                topics.append(entry)
+                PUBLISHED_TOPICS_PATH.write_text(
+                    json.dumps(topics, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+        except Exception as exc:
+            self.logger.warning("Could not update published_topics.json: %s", exc)
+
+    def _topic_already_used(self, headline: str, published: List[str]) -> bool:
+        """Return True if the headline is too similar to any previously used topic."""
+        candidate = headline.lower().strip()
+        candidate_words = set(candidate.split())
+        for used in published:
+            used_words = set(used.split())
+            # Jaccard similarity > 0.6 → consider duplicate
+            if used_words and candidate_words:
+                intersection = candidate_words & used_words
+                union = candidate_words | used_words
+                if len(intersection) / len(union) > 0.6:
+                    return True
+        return False
         
     def research_market_trends(
         self,
@@ -200,15 +243,21 @@ class BossAgent:
         seed_topics: Optional[List[str]] = None,
         industry: str = "General",
     ) -> Dict[str, Any]:
-        """Pick a weekly topic from a small seed set using live research when available."""
+        """Pick a weekly topic from a small seed set using live research when available.
+
+        Skips topics that are too similar to previously published ones (tracked in
+        published_topics.json) so the blog doesn't repeat itself week to week.
+        """
         topics = [topic.strip() for topic in (seed_topics or []) if topic and topic.strip()]
         if not topics:
             topics = [
-                "content automation",
-                "seo automation",
-                "ai workflows",
-                "developer productivity",
+                "strength training",
+                "nutrition protocols",
+                "fitness automation",
+                "health optimization",
             ]
+
+        published = self._load_published_topics()
 
         best_topic = topics[0]
         best_score = -1.0
@@ -217,14 +266,24 @@ class BossAgent:
         for topic in topics:
             insights = self.research_market_trends(topic, industry, num_results=5)
             score = sum(insight.relevance_score for insight in insights)
+
+            # Prefer topics not already covered, but still track score
+            candidate_headline = insights[0].title if insights else topic.title()
+            if self._topic_already_used(candidate_headline, published):
+                self.logger.info("Skipping duplicate topic: '%s'", candidate_headline)
+                score *= 0.1  # heavily penalise but don't hard-exclude (fallback safety)
+
             if score > best_score:
                 best_score = score
                 best_topic = topic
                 best_insight = insights[0] if insights else None
 
+        chosen_headline = best_insight.title if best_insight else best_topic.title()
+        self._record_published_topic(chosen_headline)
+
         return {
             "topic": best_topic,
-            "headline": best_insight.title if best_insight else best_topic.title(),
+            "headline": chosen_headline,
             "supporting_insight": asdict(best_insight) if best_insight else None,
             "score": round(best_score, 3),
         }

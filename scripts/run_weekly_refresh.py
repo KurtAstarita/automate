@@ -18,9 +18,25 @@ LOG = logging.getLogger("weekly_refresh")
 
 
 def _load_gsc_data() -> list[dict]:
+    # Priority 1: freshly fetched file from gsc_fetcher.py
+    if os.path.exists("gsc_data.json"):
+        try:
+            with open("gsc_data.json", encoding="utf-8") as f:
+                data = json.load(f)
+            if data:
+                LOG.info("Loaded %d GSC rows from gsc_data.json", len(data))
+                return data
+        except Exception as exc:
+            LOG.warning("Failed to read gsc_data.json: %s", exc)
+
+    # Priority 2: GSC_DATA_JSON env var (secret or workflow input)
     raw = os.environ.get("GSC_DATA_JSON", "").strip()
     if raw:
+        LOG.info("Using GSC_DATA_JSON from environment")
         return json.loads(raw)
+
+    # Priority 3: built-in sample data (last resort)
+    LOG.warning("No GSC data available — using built-in sample data")
     return [
         {
             "url_slug": "sample-post",

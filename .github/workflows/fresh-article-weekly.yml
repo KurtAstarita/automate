@@ -18,7 +18,7 @@ jobs:
   fresh-article:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       issues: write
 
     steps:
@@ -38,10 +38,18 @@ jobs:
       - name: Generate weekly fresh article package
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EDITORIAL_SEED_TOPICS: ${{ inputs.editorial_seed_topics || vars.EDITORIAL_SEED_TOPICS || 'content automation,seo automation,ai workflows,developer productivity' }}
-          EDITORIAL_INDUSTRY: ${{ inputs.editorial_industry || vars.EDITORIAL_INDUSTRY || 'B2B SaaS' }}
+          EDITORIAL_SEED_TOPICS: ${{ inputs.editorial_seed_topics || vars.EDITORIAL_SEED_TOPICS || 'strength training,nutrition protocols,fitness automation,health optimization,supplement science,recovery strategies' }}
+          EDITORIAL_INDUSTRY: ${{ inputs.editorial_industry || vars.EDITORIAL_INDUSTRY || 'Health & Fitness' }}
           SITEMAP_URL: "https://kurtastarita.com/sitemap.xml"
         run: python scripts/run_weekly_fresh_article.py
+
+      - name: Persist published topics log
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add published_topics.json
+          git diff --cached --quiet || git commit -m "chore: update published_topics.json [skip ci]"
+          git push
 
       - name: Create GitHub approval issue
         env:
