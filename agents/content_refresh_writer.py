@@ -95,13 +95,21 @@ class ContentRefreshWriter:
                 "<p>It needs newer examples, stronger positioning, and clearer next steps.</p>"
             )
 
-        response = requests.get(
-            url,
-            timeout=timeout_seconds,
-            headers={"User-Agent": "automate-refresh-writer/1.0"},
-        )
-        response.raise_for_status()
-        return response.text
+        try:
+            response = requests.get(
+                url,
+                timeout=timeout_seconds,
+                headers={"User-Agent": "automate-refresh-writer/1.0"},
+            )
+            response.raise_for_status()
+            return response.text
+        except requests.RequestException as exc:
+            self.logger.warning("Unable to fetch existing post HTML for %s. %s", url, exc)
+            return (
+                "<h1>Refresh Draft Baseline</h1>"
+                "<p>The original article content could not be fetched.</p>"
+                "<p>Proceeding with a generated baseline for refresh planning.</p>"
+            )
 
     def build_refresh_package(
         self,

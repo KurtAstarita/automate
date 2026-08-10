@@ -11,12 +11,36 @@ from agents.issue_packets import extract_packet
 
 
 def main() -> int:
-    comment_body = os.environ["COMMENT_BODY"]
-    issue_body = os.environ["ISSUE_BODY"]
-    issue_number = int(os.environ["ISSUE_NUMBER"])
-    issue_url = os.environ["ISSUE_URL"]
-    issue_title = os.environ.get("ISSUE_TITLE", "Untitled")
-    comment_author = os.environ["COMMENT_AUTHOR"]
+    try:
+        comment_body = os.environ["COMMENT_BODY"]
+        issue_body = os.environ["ISSUE_BODY"]
+        issue_number = int(os.environ["ISSUE_NUMBER"])
+        issue_url = os.environ["ISSUE_URL"]
+        issue_title = os.environ.get("ISSUE_TITLE", "Untitled")
+        comment_author = os.environ["COMMENT_AUTHOR"]
+    except KeyError as exc:
+        _write_result(
+            {
+                "status": "error",
+                "message": f"Missing required environment variable: {exc.args[0]}",
+                "published": False,
+                "issue_number": None,
+                "issue_title": "Untitled",
+            }
+        )
+        return 1
+    except ValueError:
+        _write_result(
+            {
+                "status": "error",
+                "message": "Invalid ISSUE_NUMBER value.",
+                "published": False,
+                "issue_number": None,
+                "issue_title": os.environ.get("ISSUE_TITLE", "Untitled"),
+            }
+        )
+        return 1
+
     authorized_users = {
         item.strip()
         for item in os.environ.get("AUTHORIZED_USERS", "").split(",")

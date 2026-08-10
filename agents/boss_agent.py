@@ -165,7 +165,7 @@ class BossAgent:
                 PUBLISHED_TOPICS_PATH.write_text(
                     json.dumps(topics, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
-        except Exception as exc:
+        except (OSError, ValueError, TypeError) as exc:
             self.logger.warning("Could not update published_topics.json: %s", exc)
 
     def _topic_already_used(self, headline: str, published: List[str]) -> bool:
