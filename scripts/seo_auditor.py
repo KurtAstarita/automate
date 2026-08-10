@@ -1,7 +1,7 @@
-import os
+import json
 import sys
 import glob
-import json
+import argparse
 from bs4 import BeautifulSoup
 
 def audit_html_file(file_path):
@@ -55,12 +55,21 @@ def audit_html_file(file_path):
     return issues
 
 def main():
-    target_dir = sys.argv[1] if len(sys.argv) > 1 else "dist"
+    parser = argparse.ArgumentParser(description="Run static SEO checks against HTML files.")
+    parser.add_argument("target_dir", nargs="?", default="dist", help="Directory containing HTML files.")
+    parser.add_argument(
+        "--fail-on-empty",
+        action="store_true",
+        help="Exit non-zero when no HTML files are found.",
+    )
+    args = parser.parse_args()
+
+    target_dir = args.target_dir
     html_files = glob.glob(f"{target_dir}/**/*.html", recursive=True)
     
     if not html_files:
-        print(f"No HTML files found in '{target_dir}'. Skipping audit.")
-        sys.exit(0)
+        print(f"No HTML files found in '{target_dir}'.")
+        sys.exit(1 if args.fail_on_empty else 0)
 
     total_issues = 0
     print(f"🔍 Auditing {len(html_files)} HTML file(s)...")

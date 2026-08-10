@@ -10,11 +10,11 @@ jobs:
     if: |
       github.event.issue.pull_request == null &&
       (
-        startsWith(github.event.comment.body, '/style ') ||
-        startsWith(github.event.comment.body, '/remember ') ||
-        startsWith(github.event.comment.body, '/ban ') ||
-        startsWith(github.event.comment.body, '/tone ') ||
-        startsWith(github.event.comment.body, '/punch ')
+        github.event.comment.body == '/style' || startsWith(github.event.comment.body, '/style ') ||
+        github.event.comment.body == '/remember' || startsWith(github.event.comment.body, '/remember ') ||
+        github.event.comment.body == '/ban' || startsWith(github.event.comment.body, '/ban ') ||
+        github.event.comment.body == '/tone' || startsWith(github.event.comment.body, '/tone ') ||
+        github.event.comment.body == '/punch' || startsWith(github.event.comment.body, '/punch ')
       )
     runs-on: ubuntu-latest
     permissions:

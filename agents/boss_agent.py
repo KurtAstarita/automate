@@ -11,11 +11,20 @@ Handoff Output: CONTENT_DIRECTIVE_BRIEF sent to the Content Agency.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Any, Optional
-import requests
 from dataclasses import dataclass, asdict
 from enum import Enum
+from urllib.parse import quote_plus
+
+import feedparser
+import requests
+
+from agents.ghost_controls import ghost_controls
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PUBLISHED_TOPICS_PATH = REPO_ROOT / "published_topics.json"
 
 
 # Configure logging
@@ -133,6 +142,45 @@ class BossAgent:
         self.name = "Boss Agent"
         self.stage = "Stage 1: Ideation & Research"
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
+
+    # ── Topic deduplication helpers ───────────────────────────────────────────
+
+    def _load_published_topics(self) -> List[str]:
+        """Return list of previously published topic headlines (lowercase)."""
+        try:
+            if PUBLISHED_TOPICS_PATH.exists():
+                data = json.loads(PUBLISHED_TOPICS_PATH.read_text(encoding="utf-8"))
+                return [str(t).lower().strip() for t in data if t]
+        except (OSError, ValueError, TypeError) as exc:
+            self.logger.warning("Could not read published_topics.json: %s", exc)
+        return []
+
+    def _record_published_topic(self, headline: str) -> None:
+        """Append a headline to the published topics log and persist."""
+        try:
+            topics = self._load_published_topics()
+            entry = headline.lower().strip()
+            if entry and entry not in topics:
+                topics.append(entry)
+                PUBLISHED_TOPICS_PATH.write_text(
+                    json.dumps(topics, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+        except (OSError, ValueError, TypeError) as exc:
+            self.logger.warning("Could not update published_topics.json: %s", exc)
+
+    def _topic_already_used(self, headline: str, published: List[str]) -> bool:
+        """Return True if the headline is too similar to any previously used topic."""
+        candidate = headline.lower().strip()
+        candidate_words = set(candidate.split())
+        for used in published:
+            used_words = set(used.split())
+            # Jaccard similarity > 0.6 → consider duplicate
+            if used_words and candidate_words:
+                intersection = candidate_words & used_words
+                union = candidate_words | used_words
+                if len(intersection) / len(union) > 0.6:
+                    return True
+        return False
         
     def research_market_trends(
         self,
@@ -153,18 +201,12 @@ class BossAgent:
         """
         self.logger.info(f"Researching market trends for topic: {topic} in {industry}")
         
+        controls = ghost_controls()
         trends = []
-        # TODO: Integrate with real SERP scraping service (SerpAPI, ScraperAPI, etc.)
-        # Example placeholder implementation
-        
-        trends.append(MarketInsight(
-            title=f"Emerging trends in {topic}",
-            description=f"Latest developments and opportunities in {industry}",
-            source="research_database",
-            relevance_score=0.95,
-            keywords=[topic, industry, "emerging", "trends"],
-            published_date=datetime.now().isoformat()
-        ))
+        if not controls["ghost_mode"]:
+            trends = self._fetch_market_trends(topic, industry, num_results=num_results)
+        if not trends:
+            trends = self._fallback_market_trends(topic, industry)
         
         self.logger.info(f"Gathered {len(trends)} market insights")
         return trends
@@ -186,21 +228,67 @@ class BossAgent:
         """
         self.logger.info(f"Analyzing competitive landscape for topic: {topic}")
         
+        controls = ghost_controls()
         competitors = []
-        # TODO: Integrate with competitive intelligence tools
-        # Example placeholder implementation
-        
-        competitors.append(CompetitiveAnalysis(
-            competitor_name="Market Leader A",
-            content_focus=f"Technical deep-dives on {topic}",
-            key_differentiators=["Comprehensive", "Technical", "Enterprise-focused"],
-            audience_overlap=0.6,
-            strength_areas=["Technical accuracy", "Enterprise adoption"],
-            weakness_areas=["Beginner accessibility", "Regular updates"]
-        ))
+        if not controls["ghost_mode"]:
+            competitors = self._fetch_competitive_landscape(topic, target_audience)
+        if not competitors:
+            competitors = self._fallback_competitive_landscape(topic)
         
         self.logger.info(f"Identified {len(competitors)} competitive players")
         return competitors
+
+    def discover_weekly_topic(
+        self,
+        seed_topics: Optional[List[str]] = None,
+        industry: str = "General",
+    ) -> Dict[str, Any]:
+        """Pick a weekly topic from a small seed set using live research when available.
+
+        Skips topics that are too similar to previously published ones (tracked in
+        published_topics.json) so the blog doesn't repeat itself week to week.
+        """
+        topics = [topic.strip() for topic in (seed_topics or []) if topic and topic.strip()]
+        if not topics:
+            topics = [
+                "strength training",
+                "nutrition protocols",
+                "fitness automation",
+                "health optimization",
+            ]
+
+        published = self._load_published_topics()
+
+        best_topic = topics[0]
+        best_score = -1.0
+        best_insight: Optional[MarketInsight] = None
+        best_headline = best_topic.title()
+
+        for topic in topics:
+            insights = self.research_market_trends(topic, industry, num_results=5)
+            score = sum(insight.relevance_score for insight in insights)
+
+            # Prefer topics not already covered, but still track score
+            candidate_headline = insights[0].title if insights else topic.title()
+            if self._topic_already_used(candidate_headline, published):
+                self.logger.info("Skipping duplicate topic: '%s'", candidate_headline)
+                score *= 0.1  # heavily penalise but don't hard-exclude (fallback safety)
+
+            if score > best_score:
+                best_score = score
+                best_topic = topic
+                best_insight = insights[0] if insights else None
+                best_headline = candidate_headline
+
+        chosen_headline = best_headline
+        self._record_published_topic(chosen_headline)
+
+        return {
+            "topic": best_topic,
+            "headline": chosen_headline,
+            "supporting_insight": asdict(best_insight) if best_insight else None,
+            "score": round(best_score, 3),
+        }
     
     def identify_audience_segments(
         self,
@@ -436,6 +524,131 @@ class BossAgent:
         )
         return gap_description
 
+    def _fetch_market_trends(
+        self,
+        topic: str,
+        industry: str,
+        num_results: int = 10,
+    ) -> List[MarketInsight]:
+        query = quote_plus(f"{topic} {industry}".strip())
+        feed_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+        try:
+            response = requests.get(
+                feed_url,
+                timeout=10,
+                headers={"User-Agent": "automate-boss-agent/1.0"},
+            )
+            response.raise_for_status()
+            feed = feedparser.parse(response.text)
+        except Exception as exc:
+            self.logger.warning("External trend research unavailable: %s", exc)
+            return []
+
+        insights: List[MarketInsight] = []
+        for entry in feed.entries[:num_results]:
+            title = str(entry.get("title", "")).strip()
+            summary = str(entry.get("summary", "") or entry.get("description", "")).strip()
+            source = (
+                entry.get("source", {}).get("title")
+                if isinstance(entry.get("source"), dict)
+                else entry.get("source")
+            ) or "Google News RSS"
+            if not title:
+                continue
+            published_parsed = entry.get("published_parsed")
+            published_date = datetime.now(timezone.utc).isoformat()
+            if published_parsed:
+                try:
+                    published_date = datetime(
+                        published_parsed.tm_year,
+                        published_parsed.tm_mon,
+                        published_parsed.tm_mday,
+                        published_parsed.tm_hour,
+                        published_parsed.tm_min,
+                        published_parsed.tm_sec,
+                        tzinfo=timezone.utc,
+                    ).isoformat()
+                except (AttributeError, TypeError, ValueError):
+                    published_date = datetime.now(timezone.utc).isoformat()
+            insights.append(
+                MarketInsight(
+                    title=title,
+                    description=summary or f"Recent development connected to {topic}",
+                    source=str(source),
+                    relevance_score=max(0.55, 1 - (len(insights) * 0.05)),
+                    keywords=self._extract_keywords(f"{title} {summary} {topic} {industry}")[:6] or [topic, industry],
+                    published_date=published_date,
+                )
+            )
+        return insights
+
+    def _fetch_competitive_landscape(
+        self,
+        topic: str,
+        target_audience: List[str]
+    ) -> List[CompetitiveAnalysis]:
+        insights = self._fetch_market_trends(topic, "competitors", num_results=5)
+        competitors: List[CompetitiveAnalysis] = []
+        seen = set()
+        for insight in insights:
+            source_name = insight.source.strip() or "Industry publication"
+            if source_name.lower() in seen:
+                continue
+            seen.add(source_name.lower())
+            competitors.append(
+                CompetitiveAnalysis(
+                    competitor_name=source_name,
+                    content_focus=insight.title,
+                    key_differentiators=insight.keywords[:3] or [topic, "timely coverage"],
+                    audience_overlap=0.75 if any("developer" in str(a).lower() for a in target_audience) else 0.6,
+                    strength_areas=["Timely research coverage", "Search visibility"],
+                    weakness_areas=["Limited brand voice differentiation", "Unknown implementation depth"],
+                )
+            )
+        return competitors
+
+    def _fallback_market_trends(self, topic: str, industry: str) -> List[MarketInsight]:
+        return [
+            MarketInsight(
+                title=f"Emerging trends in {topic}",
+                description=f"Latest developments and opportunities in {industry}",
+                source="research_database",
+                relevance_score=0.95,
+                keywords=[topic, industry, "emerging", "trends"],
+                published_date=datetime.now(timezone.utc).isoformat(),
+            )
+        ]
+
+    def _fallback_competitive_landscape(self, topic: str) -> List[CompetitiveAnalysis]:
+        return [
+            CompetitiveAnalysis(
+                competitor_name="Market Leader A",
+                content_focus=f"Technical deep-dives on {topic}",
+                key_differentiators=["Comprehensive", "Technical", "Enterprise-focused"],
+                audience_overlap=0.6,
+                strength_areas=["Technical accuracy", "Enterprise adoption"],
+                weakness_areas=["Beginner accessibility", "Regular updates"],
+            )
+        ]
+
+    @staticmethod
+    def _extract_keywords(text: str, max_keywords: int = 6) -> List[str]:
+        tokens = [
+            token.strip(".,:;!?()[]{}\"'").lower()
+            for token in text.split()
+            if token.strip(".,:;!?()[]{}\"'")
+        ]
+        seen = set()
+        keywords: List[str] = []
+        for token in tokens:
+            if len(token) < 4 or token in seen:
+                continue
+            seen.add(token)
+            keywords.append(token)
+            if len(keywords) >= max_keywords:
+                break
+        return keywords
+
 
 # Example usage
 if __name__ == "__main__":
@@ -457,8 +670,9 @@ if __name__ == "__main__":
         output_path="directives/content_directive_brief.json"
     )
     
-    print("\n" + "="*80)
-    print("BOSS AGENT - CONTENT DIRECTIVE BRIEF")
-    print("="*80)
-    print(json.dumps(handoff, indent=2))
-    print("="*80)
+    _demo_logger = logging.getLogger("demo")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("BOSS AGENT - CONTENT DIRECTIVE BRIEF")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info(json.dumps(handoff, indent=2))
+    _demo_logger.info("=" * 80)

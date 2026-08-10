@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 */6 * * *' # Runs every 6 hours to check for new feed updates
   workflow_run:
-    workflows: ["Reschedule Blogger Posts"] # Or your publish/build workflow name
+    workflows: ["Reschedule Blogger Posts", "Content Approval Dispatch"]
     types: [completed]
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
@@ -27,6 +27,6 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
-          SITE_HOST: "kurtasterita.com"
-          RSS_FEED_URL: "https://kurtasterita.com/feeds/posts/default"
+          SITE_HOST: "kurtastarita.com"
+          RSS_FEED_URL: "https://kurtastarita.com/feeds/posts/default"
         run: python scripts/fast_indexing.py

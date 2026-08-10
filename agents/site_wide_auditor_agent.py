@@ -11,6 +11,7 @@ Deterministic whole-site auditing for:
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -55,6 +56,7 @@ class SiteWideAuditorAgent:
     def __init__(self) -> None:
         self.name = "SiteWideAuditorAgent"
         self.repo_root = Path(__file__).resolve().parents[1]
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
     def audit_site(
         self,
@@ -150,7 +152,8 @@ class SiteWideAuditorAgent:
             try:
                 with request.urlopen(req, timeout=timeout_seconds) as resp:
                     return resp.read().decode("utf-8", errors="ignore")
-            except Exception:
+            except (error.URLError, TimeoutError, ValueError) as exc:
+                self.logger.warning("Unable to read source %s. %s", source, exc)
                 return ""
 
         path = Path(source)
@@ -201,10 +204,11 @@ class SiteWideAuditorAgent:
             body = ""
             try:
                 body = exc.read().decode("utf-8", errors="ignore")
-            except Exception:
+            except OSError:
                 body = ""
             return int(exc.code), body
-        except Exception:
+        except (error.URLError, TimeoutError, ValueError) as exc:
+            self.logger.warning("Unable to fetch URL %s. %s", url, exc)
             return -1, ""
 
     def _heading_warnings(self, levels: List[int]) -> List[str]:

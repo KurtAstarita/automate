@@ -56,104 +56,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Fetch live GSC data
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GSC_SITE_URL: "https://kurtastarita.com/"
+          GSC_LOOKBACK_DAYS: "28"
+        run: python scripts/gsc_fetcher.py || echo "GSC fetch failed — will fall back to GSC_DATA_JSON secret or sample data"
+
       - name: Run Site Intelligence Agent
         id: sia
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Allow callers to supply GSC data via secret or workflow input
+          # Fallback: allow callers to supply GSC data via secret or workflow input
           GSC_DATA_JSON: ${{ inputs.gsc_data_json || secrets.GSC_DATA_JSON || '' }}
           # GA4 configuration – reuse existing service account credential
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
           GA4_LOOKBACK_DAYS: ${{ inputs.ga4_lookback_days || '28' }}
-        run: |
-          python - <<'PYEOF'
-          import json, os, sys, logging
-          from datetime import datetime
-          from agents.site_intelligence_agent import SiteIntelligenceAgent
-          from scripts.ga4_fetcher import fetch_ga4_metrics
-
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-          log = logging.getLogger("refresh_check")
-
-          # ----------------------------------------------------------------
-          # Build GSC data – use env var if provided, otherwise sample data
-          # ----------------------------------------------------------------
-          raw_gsc = os.environ.get("GSC_DATA_JSON", "").strip()
-          if raw_gsc:
-              try:
-                  gsc_data = json.loads(raw_gsc)
-                  log.info("Loaded %d posts from GSC_DATA_JSON", len(gsc_data))
-              except json.JSONDecodeError as exc:
-                  log.error("Invalid GSC_DATA_JSON: %s", exc)
-                  sys.exit(1)
-          else:
-              # Minimal sample so the workflow demonstrates end-to-end flow
-              log.info("GSC_DATA_JSON not set – using sample data")
-              gsc_data = [
-                  {
-                      "url_slug": "sample-post",
-                      "title": "Sample Post for Refresh",
-                      "published_date": "2024-01-01",
-                      "position": 8,
-                      "impressions": 3000,
-                      "clicks": 45,
-                  }
-              ]
-
-          # ----------------------------------------------------------------
-          # Attempt GA4 metrics pull
-          # ----------------------------------------------------------------
-          candidate_slugs = [p.get("url_slug", "") for p in gsc_data if p.get("url_slug")]
-          ga4_metrics, ga4_error = fetch_ga4_metrics(candidate_slugs)
-
-          diagnostics_errors = []
-          if ga4_error:
-              log.warning("GA4 unavailable – falling back to GSC-only scoring. Reason: %s", ga4_error)
-              diagnostics_errors.append(ga4_error)
-              mode = "gsc_only_fallback"
-          else:
-              log.info("GA4 data retrieved for %d slugs – using blended GSC+GA4 scoring", len(ga4_metrics))
-              mode = "gsc_ga4"
-
-          # ----------------------------------------------------------------
-          # Run agent
-          # ----------------------------------------------------------------
-          agent = SiteIntelligenceAgent()
-
-          candidate = agent.select_weekly_candidate(gsc_data, ga4_metrics if not ga4_error else None)
-          checklist = agent.create_refresh_checklist(candidate)
-          brief = agent.create_overseer_brief(candidate, checklist)
-          issue_payload = agent.create_github_issue_payload(brief)
-
-          # ----------------------------------------------------------------
-          # Build diagnostics
-          # ----------------------------------------------------------------
-          ga4_candidate_fields = None
-          if not ga4_error and candidate.url_slug in ga4_metrics:
-              ga4_candidate_fields = ga4_metrics[candidate.url_slug]
-
-          result = {
-              "brief_id": brief.brief_id,
-              "candidate_slug": candidate.url_slug,
-              "issue_title": issue_payload["title"],
-              "issue_payload": issue_payload,
-              "created_at": datetime.now().isoformat(),
-              "diagnostics": {
-                  "mode": mode,
-                  "ga4_property_id_set": bool(os.environ.get("GA4_PROPERTY_ID")),
-                  "ga4_lookback_days": int(os.environ.get("GA4_LOOKBACK_DAYS", 28)),
-                  "ga4_slugs_matched": len(ga4_metrics),
-                  "ga4_candidate_metrics": ga4_candidate_fields,
-                  "errors": diagnostics_errors,
-              },
-          }
-
-          with open("refresh_result.json", "w") as fh:
-              json.dump(result, fh, indent=2)
-
-          log.info("Refresh check complete – candidate: %s | mode: %s", candidate.url_slug, mode)
-          PYEOF
+          SITEMAP_URL: "https://kurtastarita.com/sitemap.xml"
+        run: python scripts/run_weekly_refresh.py
 
       - name: Create GitHub approval issue
         env:
