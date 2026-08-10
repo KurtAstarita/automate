@@ -1,0 +1,86 @@
+name: Content Approval Dispatch
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  process-approval:
+    if: |
+      github.event.issue.pull_request == null &&
+      (
+        startsWith(github.event.comment.body, '/approve') ||
+        startsWith(github.event.comment.body, '/publish') ||
+        startsWith(github.event.comment.body, '/revision') ||
+        startsWith(github.event.comment.body, '/reject')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Process approval command
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          AUTHORIZED_USERS: "KurtAstarita"
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          GHOST_MODE: "false"
+          DRY_RUN: "false"
+          ALLOW_SIDE_EFFECTS: "true"
+        run: python scripts/process_approval.py
+
+      - name: Post approval summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let result = { status: 'error', message: 'approval_result.json missing', published: false };
+            if (fs.existsSync('approval_result.json')) {
+              result = JSON.parse(fs.readFileSync('approval_result.json', 'utf8'));
+            }
+
+            const lines = [
+              `Status: **${result.status || 'unknown'}**`,
+              result.message || 'No message available.'
+            ];
+
+            if (result.publish_result && result.publish_result.url) {
+              lines.push(`Published URL: ${result.publish_result.url}`);
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: lines.join('\n\n')
+            });
+
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: result.published ? '+1' : 'eyes'
+            });

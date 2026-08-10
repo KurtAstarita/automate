@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 */6 * * *' # Runs every 6 hours to check for new feed updates
   workflow_run:
-    workflows: ["Reschedule Blogger Posts"] # Or your publish/build workflow name
+    workflows: ["Reschedule Blogger Posts", "Content Approval Dispatch"]
     types: [completed]
   workflow_dispatch: # Allows manual trigger from GitHub UI
 

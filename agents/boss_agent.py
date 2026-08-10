@@ -13,9 +13,14 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-import requests
 from dataclasses import dataclass, asdict
 from enum import Enum
+from urllib.parse import quote_plus
+
+import feedparser
+import requests
+
+from agents.ghost_controls import ghost_controls
 
 
 # Configure logging
@@ -153,18 +158,12 @@ class BossAgent:
         """
         self.logger.info(f"Researching market trends for topic: {topic} in {industry}")
         
+        controls = ghost_controls()
         trends = []
-        # TODO: Integrate with real SERP scraping service (SerpAPI, ScraperAPI, etc.)
-        # Example placeholder implementation
-        
-        trends.append(MarketInsight(
-            title=f"Emerging trends in {topic}",
-            description=f"Latest developments and opportunities in {industry}",
-            source="research_database",
-            relevance_score=0.95,
-            keywords=[topic, industry, "emerging", "trends"],
-            published_date=datetime.now().isoformat()
-        ))
+        if not controls["ghost_mode"]:
+            trends = self._fetch_market_trends(topic, industry, num_results=num_results)
+        if not trends:
+            trends = self._fallback_market_trends(topic, industry)
         
         self.logger.info(f"Gathered {len(trends)} market insights")
         return trends
@@ -186,21 +185,49 @@ class BossAgent:
         """
         self.logger.info(f"Analyzing competitive landscape for topic: {topic}")
         
+        controls = ghost_controls()
         competitors = []
-        # TODO: Integrate with competitive intelligence tools
-        # Example placeholder implementation
-        
-        competitors.append(CompetitiveAnalysis(
-            competitor_name="Market Leader A",
-            content_focus=f"Technical deep-dives on {topic}",
-            key_differentiators=["Comprehensive", "Technical", "Enterprise-focused"],
-            audience_overlap=0.6,
-            strength_areas=["Technical accuracy", "Enterprise adoption"],
-            weakness_areas=["Beginner accessibility", "Regular updates"]
-        ))
+        if not controls["ghost_mode"]:
+            competitors = self._fetch_competitive_landscape(topic, target_audience)
+        if not competitors:
+            competitors = self._fallback_competitive_landscape(topic)
         
         self.logger.info(f"Identified {len(competitors)} competitive players")
         return competitors
+
+    def discover_weekly_topic(
+        self,
+        seed_topics: Optional[List[str]] = None,
+        industry: str = "General",
+    ) -> Dict[str, Any]:
+        """Pick a weekly topic from a small seed set using live research when available."""
+        topics = [topic.strip() for topic in (seed_topics or []) if topic and topic.strip()]
+        if not topics:
+            topics = [
+                "content automation",
+                "seo automation",
+                "ai workflows",
+                "developer productivity",
+            ]
+
+        best_topic = topics[0]
+        best_score = -1.0
+        best_insight: Optional[MarketInsight] = None
+
+        for topic in topics:
+            insights = self.research_market_trends(topic, industry, num_results=5)
+            score = sum(insight.relevance_score for insight in insights)
+            if score > best_score:
+                best_score = score
+                best_topic = topic
+                best_insight = insights[0] if insights else None
+
+        return {
+            "topic": best_topic,
+            "headline": best_insight.title if best_insight else best_topic.title(),
+            "supporting_insight": asdict(best_insight) if best_insight else None,
+            "score": round(best_score, 3),
+        }
     
     def identify_audience_segments(
         self,
@@ -435,6 +462,116 @@ class BossAgent:
             "implementation-focused content remains underserved."
         )
         return gap_description
+
+    def _fetch_market_trends(
+        self,
+        topic: str,
+        industry: str,
+        num_results: int = 10,
+    ) -> List[MarketInsight]:
+        query = quote_plus(f"{topic} {industry}".strip())
+        feed_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+        try:
+            response = requests.get(
+                feed_url,
+                timeout=10,
+                headers={"User-Agent": "automate-boss-agent/1.0"},
+            )
+            response.raise_for_status()
+            feed = feedparser.parse(response.text)
+        except Exception as exc:
+            self.logger.warning("External trend research unavailable: %s", exc)
+            return []
+
+        insights: List[MarketInsight] = []
+        for entry in feed.entries[:num_results]:
+            title = str(entry.get("title", "")).strip()
+            summary = str(entry.get("summary", "") or entry.get("description", "")).strip()
+            source = (
+                entry.get("source", {}).get("title")
+                if isinstance(entry.get("source"), dict)
+                else entry.get("source")
+            ) or "Google News RSS"
+            if not title:
+                continue
+            insights.append(
+                MarketInsight(
+                    title=title,
+                    description=summary or f"Recent development connected to {topic}",
+                    source=str(source),
+                    relevance_score=max(0.55, 1 - (len(insights) * 0.05)),
+                    keywords=self._extract_keywords(f"{title} {summary} {topic} {industry}")[:6] or [topic, industry],
+                    published_date=str(entry.get("published", "") or datetime.now().isoformat()),
+                )
+            )
+        return insights
+
+    def _fetch_competitive_landscape(
+        self,
+        topic: str,
+        target_audience: List[str]
+    ) -> List[CompetitiveAnalysis]:
+        insights = self._fetch_market_trends(topic, "competitors", num_results=5)
+        competitors: List[CompetitiveAnalysis] = []
+        seen = set()
+        for insight in insights:
+            source_name = insight.source.strip() or "Industry publication"
+            if source_name.lower() in seen:
+                continue
+            seen.add(source_name.lower())
+            competitors.append(
+                CompetitiveAnalysis(
+                    competitor_name=source_name,
+                    content_focus=insight.title,
+                    key_differentiators=insight.keywords[:3] or [topic, "timely coverage"],
+                    audience_overlap=0.75 if any("developer" in a for a in target_audience) else 0.6,
+                    strength_areas=["Timely research coverage", "Search visibility"],
+                    weakness_areas=["Limited brand voice differentiation", "Unknown implementation depth"],
+                )
+            )
+        return competitors
+
+    def _fallback_market_trends(self, topic: str, industry: str) -> List[MarketInsight]:
+        return [
+            MarketInsight(
+                title=f"Emerging trends in {topic}",
+                description=f"Latest developments and opportunities in {industry}",
+                source="research_database",
+                relevance_score=0.95,
+                keywords=[topic, industry, "emerging", "trends"],
+                published_date=datetime.now().isoformat(),
+            )
+        ]
+
+    def _fallback_competitive_landscape(self, topic: str) -> List[CompetitiveAnalysis]:
+        return [
+            CompetitiveAnalysis(
+                competitor_name="Market Leader A",
+                content_focus=f"Technical deep-dives on {topic}",
+                key_differentiators=["Comprehensive", "Technical", "Enterprise-focused"],
+                audience_overlap=0.6,
+                strength_areas=["Technical accuracy", "Enterprise adoption"],
+                weakness_areas=["Beginner accessibility", "Regular updates"],
+            )
+        ]
+
+    @staticmethod
+    def _extract_keywords(text: str, max_keywords: int = 6) -> List[str]:
+        tokens = [
+            token.strip(".,:;!?()[]{}\"'").lower()
+            for token in text.split()
+            if token.strip(".,:;!?()[]{}\"'")
+        ]
+        seen = set()
+        keywords: List[str] = []
+        for token in tokens:
+            if len(token) < 4 or token in seen:
+                continue
+            seen.add(token)
+            keywords.append(token)
+            if len(keywords) >= max_keywords:
+                break
+        return keywords
 
 
 # Example usage
