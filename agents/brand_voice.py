@@ -10,6 +10,7 @@ Token-efficient design:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,7 @@ from typing import Any, Dict, List, Optional
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BRAND_VOICE_PATH = REPO_ROOT / "config" / "brand_voice.json"
 KNOWLEDGE_DIR = REPO_ROOT / "config" / "knowledge"
+LOGGER = logging.getLogger(__name__)
 
 _DEFAULTS: Dict[str, Any] = {
     "author": "Kurt",
@@ -77,12 +79,14 @@ def load() -> Dict[str, Any]:
     try:
         if BRAND_VOICE_PATH.exists():
             data = json.loads(BRAND_VOICE_PATH.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise TypeError("brand_voice.json root must be an object")
             # Merge any missing keys from defaults
             for key, value in _DEFAULTS.items():
                 data.setdefault(key, value)
             return data
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError) as exc:
+        LOGGER.warning("Unable to load brand voice config; using defaults. %s", exc)
     return dict(_DEFAULTS)
 
 

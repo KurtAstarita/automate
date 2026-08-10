@@ -269,7 +269,7 @@ class SiteIntelligenceAgent:
             pub_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
             days = (datetime.now(pub_date.tzinfo) - pub_date).days
             return max(0, days)
-        except:
+        except (AttributeError, TypeError, ValueError):
             return 0
     
     def _estimate_ctr_boost(self, position: int, current_ctr: float) -> str:

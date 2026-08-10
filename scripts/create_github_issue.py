@@ -32,7 +32,7 @@ def list_existing_labels(repo: str) -> Set[str]:
             text=True,
         )
         labels = json.loads(result.stdout or "[]")
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+    except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
         LOG.warning("Unable to list repository labels; proceeding without labels. %s", exc)
         return set()
 
@@ -71,12 +71,23 @@ def main(argv: List[str]) -> int:
     path = argv[1] if len(argv) > 1 else "refresh_result.json"
     repo = os.environ["GITHUB_REPOSITORY"]
 
-    with open(path) as file_obj:
-        data = json.load(file_obj)
+    try:
+        with open(path, encoding="utf-8") as file_obj:
+            data = json.load(file_obj)
+    except (OSError, json.JSONDecodeError) as exc:
+        LOG.error("Unable to read issue payload from %s. %s", path, exc)
+        return 1
 
     issue = data["issue_payload"]
     cmd = build_issue_create_command(issue, repo, list_existing_labels(repo))
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError as exc:
+        LOG.error("GitHub CLI not found. Install `gh` before running this script. %s", exc)
+        return 1
+    except subprocess.CalledProcessError as exc:
+        LOG.error("Issue creation command failed. %s", exc)
+        return 1
     return 0
 
 
