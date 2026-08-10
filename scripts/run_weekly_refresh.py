@@ -33,7 +33,10 @@ def _load_gsc_data() -> list[dict]:
     raw = os.environ.get("GSC_DATA_JSON", "").strip()
     if raw:
         LOG.info("Using GSC_DATA_JSON from environment")
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            LOG.warning("Invalid JSON in GSC_DATA_JSON: %s", exc)
 
     # Priority 3: built-in sample data (last resort)
     LOG.warning("No GSC data available — using built-in sample data")

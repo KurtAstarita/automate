@@ -97,8 +97,14 @@ def main() -> int:
 
 
 def _write_result(result: dict) -> None:
-    with open("approval_result.json", "w", encoding="utf-8") as handle:
-        json.dump(result, handle, indent=2)
+    import tempfile
+    output_path = "approval_result.json"
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
+    ) as tmp:
+        json.dump(result, tmp, indent=2)
+        tmp_name = tmp.name
+    os.replace(tmp_name, output_path)
 
 
 if __name__ == "__main__":

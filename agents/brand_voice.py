@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -138,6 +139,7 @@ def load_knowledge_file(stem: str) -> str:
     return ""
 
 
+@lru_cache(maxsize=1)
 def _build_auto_keyword_map() -> Dict[str, str]:
     """
     Scan config/knowledge/ and build an implicit keyword map from filenames.
