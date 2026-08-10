@@ -109,7 +109,8 @@ class BloggerPublisher:
     def _find_post_by_slug(self, service: Any, blog_id: str, slug: str) -> Optional[Dict[str, Any]]:
         page_token: Optional[str] = None
         target_slug = slug.strip("/").lower()
-        while True:
+        max_pages = 20
+        for _ in range(max_pages):
             response = service.posts().list(
                 blogId=blog_id,
                 fetchBodies=False,
@@ -124,6 +125,8 @@ class BloggerPublisher:
             page_token = response.get("nextPageToken")
             if not page_token:
                 break
+        else:
+            self.logger.warning("_find_post_by_slug: reached max page limit (%d) for slug '%s'", max_pages, slug)
         return None
 
     @staticmethod

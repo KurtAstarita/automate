@@ -10,14 +10,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Environment variables supplied by GitHub Secrets
-_REQUIRED_ENV = ("BLOGGER_CLIENT_ID", "BLOGGER_CLIENT_SECRET", "BLOGGER_REFRESH_TOKEN", "BLOG_ID")
-_missing = [v for v in _REQUIRED_ENV if not os.environ.get(v)]
-if _missing:
-    raise EnvironmentError(f"Missing required environment variables: {', '.join(_missing)}")
-
-BLOG_ID = os.environ["BLOG_ID"]
-
 # ---------------------------------------------------------------------------
 # Thread-safe lazy service initialisation
 # ---------------------------------------------------------------------------
@@ -29,6 +21,10 @@ def _get_service():
     global _service
     with _service_lock:
         if _service is None:
+            _required = ("BLOGGER_CLIENT_ID", "BLOGGER_CLIENT_SECRET", "BLOGGER_REFRESH_TOKEN", "BLOG_ID")
+            missing = [v for v in _required if not os.environ.get(v)]
+            if missing:
+                raise EnvironmentError(f"Missing required environment variables: {', '.join(missing)}")
             from google.oauth2.credentials import Credentials
             from googleapiclient.discovery import build
             creds = Credentials(
@@ -45,12 +41,13 @@ def _get_service():
 
 def list_live_posts():
     service = _get_service()
+    blog_id = os.environ["BLOG_ID"]
     posts = []
     page_token = None
     while True:
         try:
             response = service.posts().list(
-                blogId=BLOG_ID,
+                blogId=blog_id,
                 fetchBodies=False,
                 maxResults=50,
                 status=["LIVE"],
@@ -91,8 +88,9 @@ def main() -> int:
 
     try:
         service = _get_service()
+        blog_id = os.environ["BLOG_ID"]
         updated_post = service.posts().patch(
-            blogId=BLOG_ID,
+            blogId=blog_id,
             postId=oldest_post["id"],
             body={"published": now_iso},
         ).execute()
