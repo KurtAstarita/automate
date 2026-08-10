@@ -26,22 +26,31 @@ creds = Credentials(
 
 service = build('blogger', 'v3', credentials=creds)
 
-# Fetch published posts (up to 50, minimal payload)
-response = service.posts().list(
-    blogId=BLOG_ID, 
-    fetchBodies=False, 
-    maxResults=50, 
-    status=['LIVE']
-).execute()
+def list_live_posts():
+    posts = []
+    page_token = None
+    while True:
+        response = service.posts().list(
+            blogId=BLOG_ID,
+            fetchBodies=False,
+            maxResults=50,
+            status=['LIVE'],
+            pageToken=page_token,
+        ).execute()
+        posts.extend(response.get('items', []))
+        page_token = response.get('nextPageToken')
+        if not page_token:
+            break
+    return posts
 
-posts = response.get('items', [])
+posts = list_live_posts()
 
 if not posts:
     print("No published posts found.")
     exit(0)
 
 # Sort posts by published date (oldest first)
-posts_sorted = sorted(posts, key=lambda x: x['published'])
+posts_sorted = sorted(posts, key=lambda x: x.get('published', ''))
 oldest_post = posts_sorted[0]
 
 print(f"Selected oldest post: '{oldest_post['title']}' (Originally Published: {oldest_post['published']})")

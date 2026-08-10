@@ -8,11 +8,12 @@ without LLM/API calls.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
-from urllib import parse, request
+from urllib import error, parse, request
 import xml.etree.ElementTree as ET
 
 from agents.ghost_controls import ghost_controls
@@ -36,6 +37,7 @@ class ContentRefreshAgent:
     def __init__(self) -> None:
         self.name = "ContentRefreshAgent"
         self.repo_root = Path(__file__).resolve().parents[1]
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
     def build_sitemap_index(
         self,
@@ -177,7 +179,8 @@ class ContentRefreshAgent:
             try:
                 with request.urlopen(req, timeout=timeout_seconds) as resp:
                     return resp.read().decode("utf-8", errors="ignore")
-            except Exception:
+            except (error.URLError, TimeoutError, ValueError) as exc:
+                self.logger.warning("Unable to read sitemap source %s. %s", source, exc)
                 return ""
 
         path = Path(source)

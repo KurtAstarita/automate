@@ -9,10 +9,10 @@ jobs:
     if: |
       github.event.issue.pull_request == null &&
       (
-        startsWith(github.event.comment.body, '/approve') ||
-        startsWith(github.event.comment.body, '/publish') ||
-        startsWith(github.event.comment.body, '/revision') ||
-        startsWith(github.event.comment.body, '/reject')
+        github.event.comment.body == '/approve' || startsWith(github.event.comment.body, '/approve ') ||
+        github.event.comment.body == '/publish' || startsWith(github.event.comment.body, '/publish ') ||
+        github.event.comment.body == '/revision' || startsWith(github.event.comment.body, '/revision ') ||
+        github.event.comment.body == '/reject' || startsWith(github.event.comment.body, '/reject ')
       )
     runs-on: ubuntu-latest
     permissions:

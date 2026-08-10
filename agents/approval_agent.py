@@ -412,38 +412,36 @@ class ApprovalAgent:
         Returns:
             Tuple of (command: str, argument: str) or (None, None)
         """
-        comment_lower = comment_text.lower().strip()
+        comment = (comment_text or "").strip()
+        if not comment:
+            return (None, None)
+        parts = comment.split(None, 1)
+        command_token = parts[0].lower()
+        argument = parts[1].strip() if len(parts) > 1 else ""
 
         # Approval commands
-        if comment_lower.startswith("/approve"):
+        if command_token == "/approve":
             return ("approve", None)
-        elif comment_lower.startswith("/publish"):
+        elif command_token == "/publish":
             return ("publish", None)
-        elif comment_lower.startswith("/revision"):
-            parts = comment_text.split(" ", 1)
-            revision_note = parts[1] if len(parts) > 1 else "Revision requested"
+        elif command_token == "/revision":
+            revision_note = argument or "Revision requested"
             return ("revision", revision_note)
-        elif comment_lower.startswith("/reject"):
-            parts = comment_text.split(" ", 1)
-            reject_reason = parts[1] if len(parts) > 1 else "Rejected by CEO"
+        elif command_token == "/reject":
+            reject_reason = argument or "Rejected by CEO"
             return ("reject", reject_reason)
 
         # Brand voice learning commands
-        elif comment_lower.startswith("/style "):
-            parts = comment_text.split(" ", 1)
-            return ("style", parts[1].strip() if len(parts) > 1 else "")
-        elif comment_lower.startswith("/remember "):
-            parts = comment_text.split(" ", 1)
-            return ("remember", parts[1].strip() if len(parts) > 1 else "")
-        elif comment_lower.startswith("/ban "):
-            parts = comment_text.split(" ", 1)
-            return ("ban", parts[1].strip() if len(parts) > 1 else "")
-        elif comment_lower.startswith("/tone "):
-            parts = comment_text.split(" ", 1)
-            return ("tone", parts[1].strip() if len(parts) > 1 else "")
-        elif comment_lower.startswith("/punch "):
-            parts = comment_text.split(" ", 1)
-            return ("punch", parts[1].strip() if len(parts) > 1 else "")
+        elif command_token == "/style":
+            return ("style", argument)
+        elif command_token == "/remember":
+            return ("remember", argument)
+        elif command_token == "/ban":
+            return ("ban", argument)
+        elif command_token == "/tone":
+            return ("tone", argument)
+        elif command_token == "/punch":
+            return ("punch", argument)
 
         return (None, None)
 
