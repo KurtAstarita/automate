@@ -48,10 +48,15 @@ class BloggerPublisher:
 
     def _create_post(self, service: Any, package: Dict[str, Any]) -> Dict[str, Any]:
         blog_id = os.environ["BLOG_ID"]
+        title = str(package.get("title") or "").strip()
+        html = str(package.get("html") or "").strip()
+        if not title or not html:
+            raise ValueError("Create payload must include non-empty 'title' and 'html'.")
+
         body = {
             "kind": "blogger#post",
-            "title": package["title"],
-            "content": package["html"],
+            "title": title,
+            "content": html,
             "labels": package.get("labels", []),
             "customMetaData": package.get("content_id") or package.get("approval_reference", ""),
         }
@@ -71,13 +76,19 @@ class BloggerPublisher:
 
     def _refresh_existing_post(self, service: Any, package: Dict[str, Any]) -> Dict[str, Any]:
         blog_id = os.environ["BLOG_ID"]
-        existing = self._find_post_by_slug(service, blog_id, package["url_slug"])
+        slug = str(package.get("url_slug") or "").strip()
+        title = str(package.get("title") or "").strip()
+        html = str(package.get("html") or "").strip()
+        if not slug or not title or not html:
+            raise ValueError("Refresh payload must include non-empty 'url_slug', 'title', and 'html'.")
+
+        existing = self._find_post_by_slug(service, blog_id, slug)
         if not existing:
-            raise ValueError(f"Unable to find existing Blogger post for slug '{package['url_slug']}'")
+            raise ValueError(f"Unable to find existing Blogger post for slug '{slug}'")
 
         patch_body = {
-            "title": package["title"],
-            "content": package["html"],
+            "title": title,
+            "content": html,
             "labels": package.get("labels", []),
             "published": datetime.now(timezone.utc).isoformat(),
         }

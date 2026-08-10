@@ -553,6 +553,21 @@ class BossAgent:
             ) or "Google News RSS"
             if not title:
                 continue
+            published_parsed = entry.get("published_parsed")
+            published_date = datetime.now(timezone.utc).isoformat()
+            if published_parsed:
+                try:
+                    published_date = datetime(
+                        published_parsed.tm_year,
+                        published_parsed.tm_mon,
+                        published_parsed.tm_mday,
+                        published_parsed.tm_hour,
+                        published_parsed.tm_min,
+                        published_parsed.tm_sec,
+                        tzinfo=timezone.utc,
+                    ).isoformat()
+                except (AttributeError, TypeError, ValueError):
+                    published_date = datetime.now(timezone.utc).isoformat()
             insights.append(
                 MarketInsight(
                     title=title,
@@ -560,7 +575,7 @@ class BossAgent:
                     source=str(source),
                     relevance_score=max(0.55, 1 - (len(insights) * 0.05)),
                     keywords=self._extract_keywords(f"{title} {summary} {topic} {industry}")[:6] or [topic, industry],
-                    published_date=str(entry.get("published", "") or datetime.now(timezone.utc).isoformat()),
+                    published_date=published_date,
                 )
             )
         return insights

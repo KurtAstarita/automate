@@ -55,7 +55,12 @@ def main() -> int:
         "issue_title": issue_title,
     }
 
-    if not authorized_users or comment_author not in authorized_users:
+    if not authorized_users:
+        result["message"] = "No authorized users configured for approval commands."
+        _write_result(result)
+        return 0
+
+    if comment_author not in authorized_users:
         result["message"] = f"User '{comment_author}' is not authorized to publish content."
         _write_result(result)
         return 0
