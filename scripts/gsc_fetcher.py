@@ -54,13 +54,12 @@ def fetch_gsc_data(
         return [], "GOOGLE_SERVICE_ACCOUNT_JSON not set"
 
     try:
-        import json as _json
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
 
         try:
-            creds_info = _json.loads(creds_json)
-        except _json.JSONDecodeError as exc:
+            creds_info = json.loads(creds_json)
+        except json.JSONDecodeError as exc:
             return [], f"Invalid JSON in GOOGLE_SERVICE_ACCOUNT_JSON: {exc}"
 
         scopes = ["https://www.googleapis.com/auth/webmasters.readonly"]

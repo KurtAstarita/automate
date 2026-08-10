@@ -47,7 +47,7 @@ class BloggerPublisher:
             }
 
     def _create_post(self, service: Any, package: Dict[str, Any]) -> Dict[str, Any]:
-        blog_id = os.environ["BLOG_ID"]
+        blog_id = self._required_env("BLOG_ID")
         title = str(package.get("title") or "").strip()
         html = str(package.get("html") or "").strip()
         if not title or not html:
@@ -75,7 +75,7 @@ class BloggerPublisher:
         }
 
     def _refresh_existing_post(self, service: Any, package: Dict[str, Any]) -> Dict[str, Any]:
-        blog_id = os.environ["BLOG_ID"]
+        blog_id = self._required_env("BLOG_ID")
         slug = str(package.get("url_slug") or "").strip()
         title = str(package.get("title") or "").strip()
         html = str(package.get("html") or "").strip()
@@ -136,12 +136,22 @@ class BloggerPublisher:
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
 
+        refresh_token = BloggerPublisher._required_env("BLOGGER_REFRESH_TOKEN")
+        client_id = BloggerPublisher._required_env("BLOGGER_CLIENT_ID")
+        client_secret = BloggerPublisher._required_env("BLOGGER_CLIENT_SECRET")
         creds = Credentials(
             token=None,
-            refresh_token=os.environ["BLOGGER_REFRESH_TOKEN"],
+            refresh_token=refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=os.environ["BLOGGER_CLIENT_ID"],
-            client_secret=os.environ["BLOGGER_CLIENT_SECRET"],
+            client_id=client_id,
+            client_secret=client_secret,
             scopes=["https://www.googleapis.com/auth/blogger"],
         )
         return build("blogger", "v3", credentials=creds)
+
+    @staticmethod
+    def _required_env(key: str) -> str:
+        value = os.environ.get(key, "").strip()
+        if not value:
+            raise ValueError(f"Required environment variable '{key}' is missing.")
+        return value

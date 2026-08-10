@@ -262,6 +262,7 @@ class BossAgent:
         best_topic = topics[0]
         best_score = -1.0
         best_insight: Optional[MarketInsight] = None
+        best_headline = best_topic.title()
 
         for topic in topics:
             insights = self.research_market_trends(topic, industry, num_results=5)
@@ -277,8 +278,9 @@ class BossAgent:
                 best_score = score
                 best_topic = topic
                 best_insight = insights[0] if insights else None
+                best_headline = candidate_headline
 
-        chosen_headline = best_insight.title if best_insight else best_topic.title()
+        chosen_headline = best_headline
         self._record_published_topic(chosen_headline)
 
         return {
