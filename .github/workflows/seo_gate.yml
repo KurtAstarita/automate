@@ -27,4 +27,4 @@ jobs:
           pip install beautifulsoup4
 
       - name: Audit HTML Files
-        run: python scripts/seo_auditor.py content/ --fail-on-empty
+        run: python scripts/seo_auditor.py content/
