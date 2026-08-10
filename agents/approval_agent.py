@@ -141,7 +141,7 @@ class GitHubApprovalIssueBuilder:
     def _build_issue_body(self, briefing: Dict[str, Any]) -> str:
         """Build detailed GitHub issue body."""
         
-        critical_metrics = briefing.get("critical_metrics", {})
+        critical_metrics = briefing.get("critical_metrics") or {}
         compliance = briefing.get("compliance_checks", {})
         risks = briefing.get("risks_identified", [])
         production_ready = briefing.get("production_ready", False)

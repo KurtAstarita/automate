@@ -4,6 +4,11 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 # Environment variables supplied by GitHub Secrets
+_REQUIRED_ENV = ("BLOGGER_CLIENT_ID", "BLOGGER_CLIENT_SECRET", "BLOGGER_REFRESH_TOKEN", "BLOG_ID")
+_missing = [v for v in _REQUIRED_ENV if not os.environ.get(v)]
+if _missing:
+    raise EnvironmentError(f"Missing required environment variables: {', '.join(_missing)}")
+
 CLIENT_ID = os.environ["BLOGGER_CLIENT_ID"]
 CLIENT_SECRET = os.environ["BLOGGER_CLIENT_SECRET"]
 REFRESH_TOKEN = os.environ["BLOGGER_REFRESH_TOKEN"]

@@ -29,6 +29,10 @@ def ping_google_indexing(url_list):
     
     try:
         creds_dict = json.loads(GOOGLE_CREDS_JSON)
+    except json.JSONDecodeError as exc:
+        print(f"  ❌ Invalid JSON in GOOGLE_SERVICE_ACCOUNT_JSON: {exc}")
+        return
+    try:
         scopes = ["https://www.googleapis.com/auth/indexing"]
         credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=scopes)
         service = build("indexing", "v3", credentials=credentials)
@@ -62,7 +66,8 @@ def ping_indexnow(url_list):
     headers = {"Content-Type": "application/json; charset=utf-8"}
     
     try:
-        response = requests.post(endpoint, json=payload, headers=headers, timeout=10)
+        with requests.Session() as session:
+            response = session.post(endpoint, json=payload, headers=headers, timeout=10)
         if response.status_code in [200, 202]:
             print(f"  ✅ IndexNow Accepted ({response.status_code}) for host {SITE_HOST}")
         else:

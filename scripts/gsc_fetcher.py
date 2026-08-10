@@ -57,7 +57,11 @@ def fetch_gsc_data(
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
 
-        creds_info = _json.loads(creds_json)
+        try:
+            creds_info = _json.loads(creds_json)
+        except _json.JSONDecodeError as exc:
+            return [], f"Invalid JSON in GOOGLE_SERVICE_ACCOUNT_JSON: {exc}"
+
         scopes = ["https://www.googleapis.com/auth/webmasters.readonly"]
         credentials = service_account.Credentials.from_service_account_info(
             creds_info, scopes=scopes
@@ -84,6 +88,9 @@ def fetch_gsc_data(
             .execute()
         )
     except Exception as exc:
+        msg = str(exc)
+        if "429" in msg or "rateLimitExceeded" in msg.lower() or "quota" in msg.lower():
+            return [], f"GSC API rate limited: {exc}"
         return [], f"GSC API query failed: {exc}"
 
     rows: List[Dict[str, Any]] = []

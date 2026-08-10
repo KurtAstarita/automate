@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from dataclasses import asdict
 
 sys.path.insert(0, ".")
@@ -64,8 +65,13 @@ def main() -> int:
         "briefing_id": briefing.briefing_id,
         "issue_payload": issue_payload,
     }
-    with open("fresh_article_result.json", "w", encoding="utf-8") as handle:
-        json.dump(result, handle, indent=2)
+    output_path = "fresh_article_result.json"
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
+    ) as tmp:
+        json.dump(result, tmp, indent=2)
+        tmp_name = tmp.name
+    os.replace(tmp_name, output_path)
     LOG.info("Fresh article package prepared: %s", briefing.briefing_id)
     return 0
 

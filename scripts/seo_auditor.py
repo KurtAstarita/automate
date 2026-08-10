@@ -1,7 +1,6 @@
 import os
 import sys
 import glob
-import json
 from bs4 import BeautifulSoup
 
 def audit_html_file(file_path):
