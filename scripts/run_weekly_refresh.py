@@ -53,6 +53,15 @@ def _load_gsc_data() -> list[dict]:
     ]
 
 
+def _write_result(result: dict, output_path: str) -> None:
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
+    ) as tmp:
+        json.dump(result, tmp, indent=2)
+        tmp_name = tmp.name
+    os.replace(tmp_name, output_path)
+
+
 def main() -> int:
     gsc_data = _load_gsc_data()
     candidate_slugs = [p.get("url_slug", "") for p in gsc_data if p.get("url_slug")]
@@ -63,7 +72,12 @@ def main() -> int:
     writer = ContentRefreshWriter()
     boss = BossAgent()
 
-    candidate = site_agent.select_weekly_candidate(gsc_data, ga4_metrics if not ga4_error else None)
+    try:
+        candidate = site_agent.select_weekly_candidate(gsc_data, ga4_metrics if not ga4_error else None)
+    except ValueError as exc:
+        LOG.warning("No refresh candidate this cycle: %s", exc)
+        _write_result({"status": "no_candidate", "message": str(exc)}, "refresh_result.json")
+        return 0
     checklist = site_agent.create_refresh_checklist(candidate)
     brief = site_agent.create_overseer_brief(candidate, checklist)
 
@@ -92,13 +106,7 @@ def main() -> int:
         },
     }
 
-    output_path = "refresh_result.json"
-    with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", delete=False, suffix=".json", dir="."
-    ) as tmp:
-        json.dump(result, tmp, indent=2)
-        tmp_name = tmp.name
-    os.replace(tmp_name, output_path)
+    _write_result(result, "refresh_result.json")
     LOG.info("Refresh package prepared: %s", brief.brief_id)
     return 0
 

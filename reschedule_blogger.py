@@ -1,7 +1,14 @@
+import logging
 import os
+import sys
+import threading
 from datetime import datetime, timezone
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Environment variables supplied by GitHub Secrets
 _REQUIRED_ENV = ("BLOGGER_CLIENT_ID", "BLOGGER_CLIENT_SECRET", "BLOGGER_REFRESH_TOKEN", "BLOG_ID")
@@ -9,62 +16,97 @@ _missing = [v for v in _REQUIRED_ENV if not os.environ.get(v)]
 if _missing:
     raise EnvironmentError(f"Missing required environment variables: {', '.join(_missing)}")
 
-CLIENT_ID = os.environ["BLOGGER_CLIENT_ID"]
-CLIENT_SECRET = os.environ["BLOGGER_CLIENT_SECRET"]
-REFRESH_TOKEN = os.environ["BLOGGER_REFRESH_TOKEN"]
 BLOG_ID = os.environ["BLOG_ID"]
 
-# Authenticate with Google
-creds = Credentials(
-    token=None,
-    refresh_token=REFRESH_TOKEN,
-    token_uri="https://oauth2.googleapis.com/token",
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    scopes=["https://www.googleapis.com/auth/blogger"]
-)
+# ---------------------------------------------------------------------------
+# Thread-safe lazy service initialisation
+# ---------------------------------------------------------------------------
+_service_lock = threading.Lock()
+_service = None
 
-service = build('blogger', 'v3', credentials=creds)
+
+def _get_service():
+    global _service
+    with _service_lock:
+        if _service is None:
+            from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
+            creds = Credentials(
+                token=None,
+                refresh_token=os.environ["BLOGGER_REFRESH_TOKEN"],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=os.environ["BLOGGER_CLIENT_ID"],
+                client_secret=os.environ["BLOGGER_CLIENT_SECRET"],
+                scopes=["https://www.googleapis.com/auth/blogger"],
+            )
+            _service = build("blogger", "v3", credentials=creds)
+    return _service
+
 
 def list_live_posts():
+    service = _get_service()
     posts = []
     page_token = None
     while True:
-        response = service.posts().list(
-            blogId=BLOG_ID,
-            fetchBodies=False,
-            maxResults=50,
-            status=['LIVE'],
-            pageToken=page_token,
-        ).execute()
-        posts.extend(response.get('items', []))
-        page_token = response.get('nextPageToken')
+        try:
+            response = service.posts().list(
+                blogId=BLOG_ID,
+                fetchBodies=False,
+                maxResults=50,
+                status=["LIVE"],
+                pageToken=page_token,
+            ).execute()
+        except Exception as exc:
+            logger.error("Failed to list Blogger posts: %s", exc)
+            raise
+        posts.extend(response.get("items", []))
+        page_token = response.get("nextPageToken")
         if not page_token:
             break
     return posts
 
-posts = list_live_posts()
 
-if not posts:
-    print("No published posts found.")
-    exit(0)
+def main() -> int:
+    try:
+        posts = list_live_posts()
+    except Exception:
+        return 1
 
-# Sort posts by published date (oldest first)
-posts_sorted = sorted(posts, key=lambda x: x.get('published', ''))
-oldest_post = posts_sorted[0]
+    if not posts:
+        logger.info("No published posts found.")
+        return 0
 
-print(
-    f"Selected oldest post: '{oldest_post.get('title', 'Untitled')}' "
-    f"(Originally Published: {oldest_post.get('published', 'unknown')})"
-)
+    # Sort posts by published date (oldest first)
+    posts_sorted = sorted(posts, key=lambda x: x.get("published", ""))
+    oldest_post = posts_sorted[0]
 
-# Update publication date to right now (ISO 8601 UTC format)
-now_iso = datetime.now(timezone.utc).isoformat()
+    logger.info(
+        "Selected oldest post: '%s' (Originally Published: %s)",
+        oldest_post.get("title", "Untitled"),
+        oldest_post.get("published", "unknown"),
+    )
 
-updated_post = service.posts().patch(
-    blogId=BLOG_ID,
-    postId=oldest_post['id'],
-    body={'published': now_iso}
-).execute()
+    # Update publication date to right now (ISO 8601 UTC format)
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-print(f"Successfully republished '{updated_post['title']}' at {updated_post['published']}")
+    try:
+        service = _get_service()
+        updated_post = service.posts().patch(
+            blogId=BLOG_ID,
+            postId=oldest_post["id"],
+            body={"published": now_iso},
+        ).execute()
+    except Exception as exc:
+        logger.error("Failed to patch Blogger post: %s", exc)
+        return 1
+
+    logger.info(
+        "Successfully republished '%s' at %s",
+        updated_post.get("title", ""),
+        updated_post.get("published", ""),
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

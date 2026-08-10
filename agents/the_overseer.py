@@ -983,35 +983,26 @@ if __name__ == "__main__":
     
     # Generate terminal dispatch
     dispatch = overseer.generate_terminal_dispatch(briefing)
-    
-    print("\n" + "="*80)
-    print("THE OVERSEER - TERMINAL BRIEFING COMPILATION")
-    print("Vault-Tec Pipeline: Stage 4")
-    print("="*80)
-    print(f"\nBriefing ID: {briefing.briefing_id}")
-    print(f"Content: {briefing.content_title}")
-    print(f"URL: {briefing.content_url}")
-    print(f"Pipeline Status: {briefing.pipeline_status}")
-    print(f"\nQuality Metrics:")
-    print(f"  Total Quality Score: {briefing.total_quality_score}/100")
-    print(f"  Risk Level: {briefing.risk_level}")
-    print(f"  Production Ready: {briefing.production_ready}")
-    print(f"\nPhase Reports:")
-    print(f"  Research: {briefing.research_phase['primary_topic']}")
-    print(f"  Creative: {briefing.creative_phase['title']} ({briefing.creative_phase['word_count']} words)")
-    print(f"  Technical: SEO Score {briefing.technical_phase['seo_score']}/100")
-    print(f"\nCompliance Status:")
+
+    _demo_logger = logging.getLogger("demo")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("THE OVERSEER - TERMINAL BRIEFING COMPILATION | Vault-Tec Pipeline: Stage 4")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("Briefing ID: %s | Content: %s | URL: %s | Status: %s",
+                      briefing.briefing_id, briefing.content_title, briefing.content_url, briefing.pipeline_status)
+    _demo_logger.info("Quality Score: %s/100 | Risk: %s | Production Ready: %s",
+                      briefing.total_quality_score, briefing.risk_level, briefing.production_ready)
+    _demo_logger.info("Research: %s", briefing.research_phase.get("primary_topic"))
+    _demo_logger.info("Creative: %s (%s words)", briefing.creative_phase.get("title"), briefing.creative_phase.get("word_count"))
+    _demo_logger.info("Technical SEO Score: %s/100", briefing.technical_phase.get("seo_score"))
     for key, value in briefing.compliance_checks.items():
         if isinstance(value, bool):
-            print(f"  {key}: {'✓' if value else '✗'}")
-    print(f"\nQuality Checks:")
+            _demo_logger.info("  Compliance %s: %s", key, "pass" if value else "FAIL")
     for check in briefing.quality_checks:
-        status = "✓" if check["level"] == "pass" else "⚠" if check["level"] == "warning" else "✗"
-        print(f"  {status} {check['check_name']}: {check['message']}")
-    print(f"\nExecutive Summary:")
-    print(briefing.executive_summary)
-    print("\n" + "="*80)
-    print("TERMINAL DISPATCH PACKAGE")
-    print("="*80)
-    print(json.dumps({k: v for k, v in dispatch.items() if k != "full_briefing"}, indent=2, default=str))
-    print("="*80)
+        _demo_logger.info("  Quality check '%s': %s", check.get("check_name"), check.get("message"))
+    _demo_logger.info("Executive Summary: %s", briefing.executive_summary)
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("TERMINAL DISPATCH PACKAGE")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info(json.dumps({k: v for k, v in dispatch.items() if k != "full_briefing"}, indent=2, default=str))
+    _demo_logger.info("=" * 80)

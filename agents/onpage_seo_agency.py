@@ -1153,37 +1153,31 @@ The content automation landscape is shifting. Organizations that act decisively 
     
     # Prepare handoff
     handoff = agency.handoff_to_overseer(optimized)
-    
-    print("\n" + "="*80)
-    print("ON-PAGE SEO AGENCY - SEO OPTIMIZED CONTENT")
-    print("Vault-Tec Pipeline: Stage 3")
-    print("="*80)
-    print(f"\nContent ID: {optimized.content_id}")
-    print(f"Raw Draft ID: {optimized.raw_draft_id}")
-    print(f"Title: {optimized.title}")
-    print(f"URL Slug: /{optimized.url_slug}")
-    print(f"Word Count: {optimized.word_count}")
-    print(f"Reading Time: {optimized.reading_time_minutes} minutes")
-    print(f"\nSEO Scores:")
-    print(f"  Overall SEO Score: {optimized.seo_score}/100")
-    print(f"  Keyword Optimization: {round(optimized.keyword_optimization_score * 100, 2)}%")
-    print(f"  Technical SEO: {round(optimized.technical_seo_score * 100, 2)}%")
-    print(f"  Readability Preserved: {round(optimized.readability_preserved * 100, 2)}%")
-    print(f"\nMeta Tags:")
-    print(f"  Title: {optimized.meta_tags['title']}")
-    print(f"  Description: {optimized.meta_tags['description']}")
-    print(f"\nHeading Structure:")
-    print(f"  Total Headings: {len(optimized.heading_structure)}")
-    print(f"  Keyword-Optimized: {sum(1 for h in optimized.heading_structure if h['keyword_optimized'])}")
-    print(f"\nInternal Links: {len(optimized.internal_links)}")
-    print(f"\nKeyword Density:")
+
+    _demo_logger = logging.getLogger("demo")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("ON-PAGE SEO AGENCY - SEO OPTIMIZED CONTENT | Vault-Tec Pipeline: Stage 3")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("Content ID: %s | Draft ID: %s | Title: %s | Slug: /%s",
+                      optimized.content_id, optimized.raw_draft_id, optimized.title, optimized.url_slug)
+    _demo_logger.info("Word Count: %s | Reading Time: %s min", optimized.word_count, optimized.reading_time_minutes)
+    _demo_logger.info("SEO Score: %s | Keyword Opt: %s%% | Technical: %s%% | Readability: %s%%",
+                      optimized.seo_score,
+                      round(optimized.keyword_optimization_score * 100, 2),
+                      round(optimized.technical_seo_score * 100, 2),
+                      round(optimized.readability_preserved * 100, 2))
+    _demo_logger.info("Meta Title: %s", optimized.meta_tags.get("title"))
+    _demo_logger.info("Meta Desc: %s", optimized.meta_tags.get("description"))
+    _demo_logger.info("Headings: %d total, %d keyword-optimized",
+                      len(optimized.heading_structure),
+                      sum(1 for h in optimized.heading_structure if h.get("keyword_optimized")))
+    _demo_logger.info("Internal Links: %d", len(optimized.internal_links))
     for kw, density in optimized.keyword_density.items():
-        print(f"  {kw}: {density}%")
-    print(f"\nOptimizations Applied:")
+        _demo_logger.info("  Keyword '%s': %s%%", kw, density)
     for opt in optimized.optimizations_applied:
-        print(f"  ✓ {opt}")
-    print("\n" + "="*80)
-    print("HANDOFF PACKAGE FOR THE OVERSEER")
-    print("="*80)
-    print(json.dumps({k: v for k, v in handoff.items() if k != "full_optimized_content"}, indent=2, default=str))
-    print("="*80)
+        _demo_logger.info("  Applied: %s", opt)
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("HANDOFF PACKAGE FOR THE OVERSEER")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info(json.dumps({k: v for k, v in handoff.items() if k != "full_optimized_content"}, indent=2, default=str))
+    _demo_logger.info("=" * 80)

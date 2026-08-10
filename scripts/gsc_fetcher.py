@@ -38,6 +38,23 @@ def _normalise_slug(path: str) -> str:
     return path.lower().strip("/")
 
 
+def _safe_int(val: Any, default: int = 0) -> int:
+    """Safely convert an external API value to int."""
+    try:
+        return int(float(val)) if val is not None else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    """Safely convert an external API value to float."""
+    try:
+        return float(val) if val is not None else default
+    except (ValueError, TypeError):
+        return default
+
+
+
 def fetch_gsc_data(
     lookback_days: int = DEFAULT_LOOKBACK_DAYS,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
@@ -95,17 +112,22 @@ def fetch_gsc_data(
 
     rows: List[Dict[str, Any]] = []
     for row in response.get("rows", []):
-        page_url = row.get("keys", [""])[0]
+        keys = row.get("keys")
+        if not isinstance(keys, list) or not keys:
+            continue
+        page_url = keys[0]
+        if not isinstance(page_url, str):
+            continue
         slug = _normalise_slug(page_url.replace(site_url.rstrip("/"), ""))
         rows.append(
             {
                 "url_slug": slug,
                 "title": slug.replace("-", " ").title(),
                 "published_date": "",
-                "position": round(row.get("position", 0), 1),
-                "impressions": int(row.get("impressions", 0)),
-                "clicks": int(row.get("clicks", 0)),
-                "ctr": round(row.get("ctr", 0.0), 4),
+                "position": round(_safe_float(row.get("position"), 100.0), 1),
+                "impressions": _safe_int(row.get("impressions")),
+                "clicks": _safe_int(row.get("clicks")),
+                "ctr": round(_safe_float(row.get("ctr")), 4),
             }
         )
 

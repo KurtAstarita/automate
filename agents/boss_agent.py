@@ -670,8 +670,9 @@ if __name__ == "__main__":
         output_path="directives/content_directive_brief.json"
     )
     
-    print("\n" + "="*80)
-    print("BOSS AGENT - CONTENT DIRECTIVE BRIEF")
-    print("="*80)
-    print(json.dumps(handoff, indent=2))
-    print("="*80)
+    _demo_logger = logging.getLogger("demo")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("BOSS AGENT - CONTENT DIRECTIVE BRIEF")
+    _demo_logger.info("=" * 80)
+    _demo_logger.info(json.dumps(handoff, indent=2))
+    _demo_logger.info("=" * 80)

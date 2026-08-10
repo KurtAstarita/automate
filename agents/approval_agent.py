@@ -759,26 +759,26 @@ Click "APPROVE & PUBLISH" to deploy immediately.""",
         "production_ready": True
     }
     
+    _demo_logger = logging.getLogger("demo")
+
     # Step 1: Create approval issue
-    print("\n" + "="*80)
-    print("APPROVAL AGENT - GITHUB ISSUE CREATION")
-    print("Vault-Tec Pipeline: Stage 5")
-    print("="*80)
-    
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("APPROVAL AGENT - GITHUB ISSUE CREATION")
+    _demo_logger.info("Vault-Tec Pipeline: Stage 5")
+    _demo_logger.info("=" * 80)
+
     issue_payload = approval_agent.create_approval_issue(sample_terminal_briefing)
-    
-    print(f"\n✅ GitHub Issue Ready to Create:")
-    print(f"\nTitle: {issue_payload.title}")
-    print(f"Labels: {', '.join(issue_payload.labels)}")
-    print(f"Assignee: {issue_payload.assignee}")
-    print(f"\nIssue Body Preview (first 1000 chars):")
-    print(issue_payload.body[:1000] + "...\n")
-    
+
+    _demo_logger.info("GitHub Issue Ready to Create:")
+    _demo_logger.info("Title: %s", issue_payload.title)
+    _demo_logger.info("Labels: %s", ", ".join(issue_payload.labels))
+    _demo_logger.info("Assignee: %s", issue_payload.assignee)
+
     # Step 2: Simulate approval decision
-    print("="*80)
-    print("SIMULATING CEO APPROVAL DECISION")
-    print("="*80)
-    
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("SIMULATING CEO APPROVAL DECISION")
+    _demo_logger.info("=" * 80)
+
     approval_decision = approval_agent.process_approval_decision(
         briefing_id="BRIEFING_20260808_180000",
         github_issue_number=42,
@@ -788,43 +788,37 @@ Click "APPROVE & PUBLISH" to deploy immediately.""",
         approval_method="comment",
         approval_comment="/approve"
     )
-    
-    print(f"\n✅ Approval Decision Recorded:")
-    print(f"Decision ID: {approval_decision.decision_id}")
-    print(f"Status: {approval_decision.status}")
-    print(f"Issue: #{approval_decision.github_issue_number}")
-    print(f"Approved By: @{approval_decision.approved_by}")
-    print(f"Action: {approval_decision.action_taken}")
-    
+
+    _demo_logger.info("Approval Decision Recorded:")
+    _demo_logger.info("Decision ID: %s", approval_decision.decision_id)
+    _demo_logger.info("Status: %s", approval_decision.status)
+    _demo_logger.info("Issue: #%s", approval_decision.github_issue_number)
+    _demo_logger.info("Approved By: @%s", approval_decision.approved_by)
+    _demo_logger.info("Action: %s", approval_decision.action_taken)
+
     # Step 3: Generate deployment signal
-    print("\n" + "="*80)
-    print("GENERATING DEPLOYMENT SIGNAL")
-    print("="*80)
-    
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("GENERATING DEPLOYMENT SIGNAL")
+    _demo_logger.info("=" * 80)
+
     deployment_signal = approval_agent.generate_deployment_signal(
         approval_decision,
         content_id="SEO_20260808_180000",
         content_url_slug="ai-powered-content-automation"
     )
-    
-    print(f"\n✅ Deployment Signal Generated:")
-    print(f"Authorization: {deployment_signal['deployment_authorized']}")
-    print(f"Signal Type: {deployment_signal['signal_type']}")
-    print(f"Content ID: {deployment_signal['content_id']}")
-    print(f"URL Slug: {deployment_signal['content_url_slug']}")
-    
+
+    _demo_logger.info("Deployment Signal Generated:")
+    _demo_logger.info("Authorization: %s", deployment_signal["deployment_authorized"])
+    _demo_logger.info("Signal Type: %s", deployment_signal["signal_type"])
+    _demo_logger.info("Content ID: %s", deployment_signal["content_id"])
+    _demo_logger.info("URL Slug: %s", deployment_signal["content_url_slug"])
+
     # Step 4: Create workflow dispatch payload
-    print("\n" + "="*80)
-    print("GITHUB ACTIONS WORKFLOW DISPATCH")
-    print("="*80)
-    
+    _demo_logger.info("=" * 80)
+    _demo_logger.info("GITHUB ACTIONS WORKFLOW DISPATCH")
+    _demo_logger.info("=" * 80)
+
     workflow_payload = approval_agent.create_workflow_dispatch_payload(deployment_signal)
-    
-    print(f"\n✅ Workflow Dispatch Payload Ready:")
-    print(json.dumps(workflow_payload, indent=2))
-    
-    print("\n" + "="*80)
-    print("FULL GITHUB ISSUE BODY")
-    print("="*80)
-    print(issue_payload.body)
-    print("="*80)
+    _demo_logger.info("Workflow Dispatch Payload: %s", json.dumps(workflow_payload, indent=2))
+
+    _demo_logger.info("=" * 80)
