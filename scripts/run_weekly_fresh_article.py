@@ -32,7 +32,7 @@ def main() -> int:
     seo = OnPageSEOAgency()
     overseer = TheOverseer()
     approval = ApprovalAgent()
-    refresh_agent = ContentRefreshAgent()
+    refresh_agent = ContentRefreshAgent()  # Reuse sitemap/link target helpers for fresh content
 
     industry = os.environ.get("EDITORIAL_INDUSTRY", "General").strip() or "General"
     topic_pick = boss.discover_weekly_topic(seed_topics=_seed_topics(), industry=industry)

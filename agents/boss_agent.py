@@ -11,7 +11,7 @@ Handoff Output: CONTENT_DIRECTIVE_BRIEF sent to the Content Agency.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
@@ -560,7 +560,7 @@ class BossAgent:
                     source=str(source),
                     relevance_score=max(0.55, 1 - (len(insights) * 0.05)),
                     keywords=self._extract_keywords(f"{title} {summary} {topic} {industry}")[:6] or [topic, industry],
-                    published_date=str(entry.get("published", "") or datetime.now().isoformat()),
+                    published_date=str(entry.get("published", "") or datetime.now(timezone.utc).isoformat()),
                 )
             )
         return insights
@@ -598,7 +598,7 @@ class BossAgent:
                 source="research_database",
                 relevance_score=0.95,
                 keywords=[topic, industry, "emerging", "trends"],
-                published_date=datetime.now().isoformat(),
+                published_date=datetime.now(timezone.utc).isoformat(),
             )
         ]
 
